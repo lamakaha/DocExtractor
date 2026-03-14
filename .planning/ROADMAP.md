@@ -3,7 +3,7 @@
 ## Status
 - **Current Phase**: Phase 3: HITL UI
 - **Progress**: 50%
-- **Last Updated**: 2026-03-13
+- **Last Updated**: 2026-03-14
 
 ## Phases
 - [x] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
@@ -52,7 +52,10 @@
   2. Reviewers can see the original document and extracted fields in a side-by-side layout.
   3. Clicking a field draws a high-contrast bounding box on the source document image.
   4. Fields are color-coded (Red/Yellow/Green) based on extraction confidence.
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 03-01-PLAN.md — Project Foundation & Dashboard
+- [ ] 03-02-PLAN.md — Reviewer Layout & Canvas Rendering
+- [ ] 03-03-PLAN.md — Dynamic Form & Approval Workflow
 
 ### Phase 4: Persistence & Export
 **Goal**: Bridge the gap between transactional AI output and structured business reporting.
@@ -71,5 +74,5 @@
 |-------|----------------|--------|-----------|
 | 1. Ingestion Engine | 3/3 | Completed | 2026-03-13 |
 | 2. Core Extraction | 3/3 | Completed | 2026-03-13 |
-| 3. HITL UI | 0/0 | Not started | - |
+| 3. HITL UI | 0/3 | In Progress | - |
 | 4. Persistence & Export | 0/0 | Not started | - |
