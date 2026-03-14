@@ -1,0 +1,7 @@
+mail-parser
+pydantic
+sqlalchemy
+pytest
+Pillow
+python-magic
+python-magic-bin; platform_system == 'Windows'
