@@ -1,0 +1,32 @@
+{
+  "document_type": "Commercial_Loan_Paydown",
+  "classification_cues": [
+    "Principal Payment",
+    "Interest Due",
+    "Loan Reference Number",
+    "Paydown Amount"
+  ],
+  "semantic_context": "This document is a formal notification of a debt repayment. It usually arrives as an email body with a PDF attachment, or a PDF containing a cover letter and a transaction table.",
+  "extraction_schema": {
+    "lender_name": {
+      "description": "The financial institution issuing the notice.",
+      "type": "string"
+    },
+    "total_amount": {
+      "description": "The total sum of the payment including principal and interest.",
+      "type": "currency"
+    },
+    "effective_date": {
+      "description": "The date the funds are applied to the loan balance.",
+      "type": "date"
+    },
+    "transactions": {
+      "description": "A list of individual line items (Principal, Interest, Fees).",
+      "type": "list",
+      "schema": {
+        "component": "string",
+        "amount": "currency"
+      }
+    }
+  }
+}

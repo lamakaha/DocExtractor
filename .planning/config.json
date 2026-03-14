@@ -1,0 +1,13 @@
+{
+  "workflow": "gsd:new-project",
+  "auto": true,
+  "research": true,
+  "preferences": {
+    "tech_stack": [
+      "Python",
+      "Gemini API",
+      "Streamlit",
+      "DuckDB"
+    ]
+  }
+}
