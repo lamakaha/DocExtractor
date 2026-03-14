@@ -12,13 +12,14 @@ class Package(Base):
     original_filename = Column(String, nullable=False)
     # Statuses: PENDING, INGESTING, INGESTED, CLASSIFYING, EXTRACTING, EXTRACTED, FAILED, APPROVED
     status = Column(String, default="PENDING")
+    is_archived = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     extracted_files = relationship("ExtractedFile", back_populates="package", cascade="all, delete-orphan")
     logs = relationship("PackageLog", back_populates="package", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Package(id={self.id}, original_filename={self.original_filename}, status={self.status})>"
+        return f"<Package(id={self.id}, original_filename={self.original_filename}, status={self.status}, archived={self.is_archived})>"
 
 class PackageLog(Base):
     __tablename__ = "package_logs"

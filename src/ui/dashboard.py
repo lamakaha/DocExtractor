@@ -1,7 +1,12 @@
 import os
 import streamlit as st
 import pandas as pd
-from src.ui.db_utils import get_all_packages, get_package_logs
+from src.ui.db_utils import (
+    get_all_packages, 
+    get_package_logs, 
+    archive_multiple_packages, 
+    archive_package
+)
 from src.services.analytical_service import AnalyticalService
 from src.services.export_service import ExcelExporter
 from src.ui.watcher_manager import start_watcher, stop_watcher, is_watcher_running
@@ -9,6 +14,10 @@ from src.ui.watcher_manager import start_watcher, stop_watcher, is_watcher_runni
 def render_dashboard():
     st.header("Package Dashboard")
     
+    # Initialize selection in session state if not present
+    if "selected_packages" not in st.session_state:
+        st.session_state.selected_packages = set()
+
     # Sidebar for control panels
     with st.sidebar:
         # File Watcher Control Panel
@@ -42,8 +51,28 @@ def render_dashboard():
         st.info(f"📁 Processed: {processed_count} | ❌ Failed: {failed_count}")
         st.divider()
 
+        # Cleanup & Archiving
+        st.subheader("Cleanup & Archiving")
+        show_archived = st.toggle("Show Archived Packages", value=False)
+        
+        failed_pkgs = get_all_packages(status_filter=["FAILED"], include_archived=False)
+        if failed_pkgs:
+            if st.button(f"Archive all {len(failed_pkgs)} FAILED", type="secondary", use_container_width=True):
+                archive_multiple_packages([p.id for p in failed_pkgs])
+                st.success("Archived all failed packages.")
+                st.rerun()
+        
+        if st.session_state.selected_packages:
+            if st.button(f"Archive {len(st.session_state.selected_packages)} selected", type="primary", use_container_width=True):
+                archive_multiple_packages(list(st.session_state.selected_packages))
+                st.session_state.selected_packages = set()
+                st.success("Selected packages archived.")
+                st.rerun()
+        
+        st.divider()
+
         st.subheader("Bulk Actions")
-        approved_pkgs = get_all_packages(status_filter=["APPROVED"])
+        approved_pkgs = get_all_packages(status_filter=["APPROVED"], include_archived=False)
         if approved_pkgs:
             st.success(f"Found {len(approved_pkgs)} approved packages.")
             if st.button("Prepare Bulk Export"):
@@ -82,28 +111,37 @@ def render_dashboard():
     selected_statuses = st.multiselect("Filter by Status", statuses, default=["INGESTED", "EXTRACTED", "FAILED", "APPROVED"])
     
     # Fetch Data
-    packages = get_all_packages(status_filter=selected_statuses)
+    packages = get_all_packages(status_filter=selected_statuses, include_archived=show_archived)
     
     if not packages:
         st.info("No packages found.")
         return
 
     # Header Row
-    cols = st.columns([1, 2, 1.5, 1.5, 1, 1])
-    cols[0].write("**ID**")
-    cols[1].write("**Filename**")
-    cols[2].write("**Status**")
-    cols[3].write("**Created At**")
-    cols[4].write("**Logs**")
-    cols[5].write("**Action**")
+    cols = st.columns([0.5, 1, 2, 1.5, 1.5, 1, 1.5])
+    cols[0].write("Select")
+    cols[1].write("**ID**")
+    cols[2].write("**Filename**")
+    cols[3].write("**Status**")
+    cols[4].write("**Created At**")
+    cols[5].write("**Logs**")
+    cols[6].write("**Action**")
 
     # Data Rows
     for pkg in packages:
         with st.container():
-            cols = st.columns([1, 2, 1.5, 1.5, 1, 1])
+            cols = st.columns([0.5, 1, 2, 1.5, 1.5, 1, 1.5])
+            
+            # Selection Checkbox
+            is_selected = pkg.id in st.session_state.selected_packages
+            if cols[0].checkbox("", value=is_selected, key=f"select_{pkg.id}"):
+                st.session_state.selected_packages.add(pkg.id)
+            else:
+                st.session_state.selected_packages.discard(pkg.id)
+            
             # Truncate ID for display
-            cols[0].write(f"`{pkg.id[:8]}...`")
-            cols[1].write(pkg.original_filename)
+            cols[1].write(f"`{pkg.id[:8]}...`")
+            cols[2].write(pkg.original_filename)
             
             # Status color coding
             status_map = {
@@ -114,18 +152,30 @@ def render_dashboard():
                 "PENDING": "gray"
             }
             color = status_map.get(pkg.status, "white")
-            cols[2].markdown(f":{color}[{pkg.status}]")
+            archived_suffix = " (Archived)" if pkg.is_archived else ""
+            cols[3].markdown(f":{color}[{pkg.status}{archived_suffix}]")
             
-            cols[3].write(pkg.created_at.strftime("%Y-%m-%d %H:%M"))
+            cols[4].write(pkg.created_at.strftime("%Y-%m-%d %H:%M"))
             
-            # Log toggle (using an expander below)
-            show_logs = cols[4].button("📋", key=f"log_btn_{pkg.id}", help="Show Processing Logs")
+            # Log toggle
+            show_logs = cols[5].button("📋", key=f"log_btn_{pkg.id}", help="Show Processing Logs")
             
-            # Action Button
-            if cols[5].button("Review", key=f"btn_{pkg.id}"):
+            # Action Buttons
+            btn_col1, btn_col2 = cols[6].columns(2)
+            if btn_col1.button("Review", key=f"btn_{pkg.id}"):
                 st.session_state.current_package_id = pkg.id
                 st.session_state.current_view = "Reviewer"
                 st.rerun()
+            
+            if pkg.is_archived:
+                if btn_col2.button("♻️", key=f"unarchive_{pkg.id}", help="Unarchive"):
+                    archive_package(pkg.id, False)
+                    st.rerun()
+            else:
+                if btn_col2.button("🗑️", key=f"archive_{pkg.id}", help="Archive"):
+                    archive_package(pkg.id, True)
+                    st.session_state.selected_packages.discard(pkg.id)
+                    st.rerun()
                 
             if show_logs:
                 logs = get_package_logs(pkg.id)

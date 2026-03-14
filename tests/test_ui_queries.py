@@ -98,3 +98,37 @@ def test_get_extractions_for_package(setup_test_db):
         assert len(empty) == 0
     finally:
         dbu.db_session = old_session
+
+def test_archive_package(setup_test_db):
+    session = setup_test_db
+    import src.ui.db_utils as dbu
+    old_session = dbu.db_session
+    dbu.db_session = session
+    try:
+        p = Package(id='4', original_filename='test4.zip', status='FAILED')
+        session.add(p)
+        session.commit()
+        dbu.archive_package('4', True)
+        assert dbu.get_package_by_id('4').is_archived == True
+        assert len(dbu.get_all_packages(include_archived=False, status_filter=['FAILED'])) == 0
+        dbu.archive_package('4', False)
+        assert dbu.get_package_by_id('4').is_archived == False
+        assert len(dbu.get_all_packages(include_archived=False, status_filter=['FAILED'])) == 1
+    finally:
+        dbu.db_session = old_session
+
+def test_archive_multiple_packages(setup_test_db):
+    session = setup_test_db
+    import src.ui.db_utils as dbu
+    old_session = dbu.db_session
+    dbu.db_session = session
+    try:
+        p1 = Package(id='5', original_filename='test5.zip', status='FAILED')
+        p2 = Package(id='6', original_filename='test6.zip', status='FAILED')
+        session.add_all([p1, p2])
+        session.commit()
+        dbu.archive_multiple_packages(['5', '6'], True)
+        assert dbu.get_package_by_id('5').is_archived == True
+        assert dbu.get_package_by_id('6').is_archived == True
+    finally:
+        dbu.db_session = old_session

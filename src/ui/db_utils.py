@@ -2,11 +2,16 @@ from typing import List, Optional
 from src.db.session import db_session
 from src.models.schema import Package, Extractions, ExtractedFile, PackageLog
 
-def get_all_packages(status_filter: Optional[List[str]] = None) -> List[Package]:
-    """Fetch all packages, optionally filtered by status."""
+def get_all_packages(status_filter: Optional[List[str]] = None, include_archived: bool = False) -> List[Package]:
+    """Fetch all packages, optionally filtered by status and archive state."""
     query = db_session.query(Package)
+    
+    if not include_archived:
+        query = query.filter(Package.is_archived == False)
+        
     if status_filter:
         query = query.filter(Package.status.in_(status_filter))
+        
     return query.order_by(Package.created_at.desc()).all()
 
 def get_package_by_id(package_id: str) -> Optional[Package]:
@@ -39,3 +44,15 @@ def update_package_status(package_id: str, status: str):
     if package:
         package.status = status
         db_session.commit()
+
+def archive_package(package_id: str, archive: bool = True):
+    """Mark a package as archived or unarchived."""
+    package = db_session.query(Package).filter(Package.id == package_id).first()
+    if package:
+        package.is_archived = archive
+        db_session.commit()
+
+def archive_multiple_packages(package_ids: List[str], archive: bool = True):
+    """Mark multiple packages as archived or unarchived."""
+    db_session.query(Package).filter(Package.id.in_(package_ids)).update({"is_archived": archive}, synchronize_session=False)
+    db_session.commit()

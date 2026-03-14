@@ -38,5 +38,5 @@
 - None.
 
 ## Session Continuity
-- **Last Action**: Completed Phase 4 (Persistence & Export). Verified with automated tests and UI walkthrough.
+- **Last Action**: Implemented "Archive" feature to clean up failed and processed entries from the Streamlit UI dashboard. Added `is_archived` column to SQLite database. Verified with unit tests.
 - **Next Step**: Project handover or maintenance.
