@@ -31,13 +31,17 @@
 ### Phase 2: Core Extraction
 **Goal**: Leverage Gemini 1.5 Pro to produce high-fidelity, visually grounded structured data.
 **Depends on**: Phase 1
-**Requirements**: REQ-EXT-01, REQ-EXT-02, REQ-EXT-03, REQ-EXT-04, REQ-EXT-05
+**Requirements**: REQ-EXT-01, REQ-EXT-02, REQ-EXT-03, REQ-EXT-04, REQ-EXT-05, REQ-NFR-03
 **Success Criteria**:
   1. System correctly identifies document type (Classification) before attempting extraction.
   2. Extraction returns "Triplet Objects" (Value, Confidence, BBox) for every field.
   3. Gemini's 0-1000 coordinates are successfully scaled to actual image pixel dimensions.
   4. Extracted data passes Pydantic validation against the `extraction_schema`.
-**Plans**: TBD
+  5. System supports concurrent processing of multiple extraction jobs.
+**Plans**: 3 plans
+- [ ] 02-01-PLAN.md — Extraction Foundation & Scaling
+- [ ] 02-02-PLAN.md — Classification & Extraction Services
+- [ ] 02-03-PLAN.md — Extraction Pipeline & Concurrency
 
 ### Phase 3: HITL UI
 **Goal**: Provide a professional review interface to ensure 100% data integrity.
@@ -66,6 +70,6 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Ingestion Engine | 3/3 | Completed | 2026-03-13 |
-| 2. Core Extraction | 0/0 | Not started | - |
+| 2. Core Extraction | 0/3 | In Progress | - |
 | 3. HITL UI | 0/0 | Not started | - |
 | 4. Persistence & Export | 0/0 | Not started | - |
