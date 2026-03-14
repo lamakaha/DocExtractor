@@ -13,7 +13,7 @@ class ExtractionService:
 
     def __init__(self):
         self._client = None
-        self.model_id = "gemini-2.0-pro"
+        self.model_id = "gemini-2.5-pro"
 
     @property
     def client(self):

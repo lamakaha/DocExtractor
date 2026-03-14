@@ -14,7 +14,7 @@ class ClassificationService:
     def __init__(self, configs_path: str = "configs"):
         self.configs_path = configs_path
         self._client = None
-        self.model_id = "gemini-2.0-pro"
+        self.model_id = "gemini-2.5-pro"
         self._doc_type_cues: Dict[str, List[str]] = self._load_cues()
 
     @property

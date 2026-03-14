@@ -40,7 +40,7 @@ class GeminiClientFactory:
             client = cls.get_client()
             # Try a very simple prompt to check connectivity
             response = client.models.generate_content(
-                model="gemini-1.5-flash", # Use flash for a quick, cheap check
+                model="gemini-2.0-flash", # Use flash for a quick, cheap check
                 contents="ping"
             )
             return response.text is not None
