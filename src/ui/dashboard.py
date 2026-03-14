@@ -1,13 +1,46 @@
+import os
 import streamlit as st
 from src.ui.db_utils import get_all_packages
 from src.services.analytical_service import AnalyticalService
 from src.services.export_service import ExcelExporter
+from src.ui.watcher_manager import start_watcher, stop_watcher, is_watcher_running
 
 def render_dashboard():
     st.header("Package Dashboard")
     
-    # Sidebar for bulk actions
+    # Sidebar for control panels
     with st.sidebar:
+        # File Watcher Control Panel
+        st.subheader("Automated Ingestion")
+        running = is_watcher_running()
+        
+        status_color = "green" if running else "red"
+        status_text = "Running" if running else "Stopped"
+        st.markdown(f"Status: **:{status_color}[{status_text}]**")
+        
+        col1, col2 = st.columns(2)
+        if not running:
+            if col1.button("Start Watcher", use_container_width=True):
+                start_watcher()
+                st.rerun()
+        else:
+            if col1.button("Stop Watcher", use_container_width=True):
+                stop_watcher()
+                st.rerun()
+        
+        if col2.button("🔄 Refresh", use_container_width=True):
+            st.rerun()
+
+        # Monitoring Stats
+        processed_dir = "ingest/processed"
+        failed_dir = "ingest/failed"
+        
+        processed_count = len([f for f in os.listdir(processed_dir)]) if os.path.exists(processed_dir) else 0
+        failed_count = len([f for f in os.listdir(failed_dir)]) if os.path.exists(failed_dir) else 0
+        
+        st.info(f"📁 Processed: {processed_count} | ❌ Failed: {failed_count}")
+        st.divider()
+
         st.subheader("Bulk Actions")
         approved_pkgs = get_all_packages(status_filter=["APPROVED"])
         if approved_pkgs:

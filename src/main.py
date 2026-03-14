@@ -36,6 +36,9 @@ def main():
     process_parser = parser.add_index.add_parser("process", help="Process pending packages")
     process_parser.add_argument("--workers", type=int, default=5, help="Number of concurrent workers")
 
+    # Watch command
+    parser.add_index.add_parser("watch", help="Watch 'ingest' directory for new files")
+
     # Init DB command
     parser.add_index.add_parser("init-db", help="Initialize the database")
 
@@ -47,6 +50,11 @@ def main():
     elif args.command == "process":
         init_db()
         asyncio.run(process_pending_packages(max_workers=args.workers))
+    elif args.command == "watch":
+        init_db()
+        from src.services.watcher import FileWatcher
+        watcher = FileWatcher()
+        watcher.start()
     else:
         parser.print_help()
 
