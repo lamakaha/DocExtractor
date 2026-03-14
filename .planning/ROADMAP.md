@@ -1,15 +1,15 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: Phase 4: Persistence & Export
-- **Progress**: 75%
+- **Current Phase**: Completed
+- **Progress**: 100%
 - **Last Updated**: 2026-03-14
 
 ## Phases
 - [x] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
 - [x] **Phase 2: Core Extraction** - Gemini 1.5 Pro integration for classification and Triplet-based extraction with Pydantic validation.
 - [x] **Phase 3: HITL UI** - Streamlit dashboard for side-by-side review, visual grounding, and manual correction.
-- [ ] **Phase 4: Persistence & Export** - Hybrid SQLite/DuckDB storage and multi-tab Excel reporting via xlsxwriter.
+- [x] **Phase 4: Persistence & Export** - Hybrid SQLite/DuckDB storage and multi-tab Excel reporting via xlsxwriter.
 
 ---
 
@@ -65,7 +65,10 @@
   1. Approved extraction data is persisted in SQLite with DuckDB views for "shredded" field access.
   2. System generates multi-tab Excel files (Summary vs. Transactions) using `xlsxwriter`.
   3. Exported files are valid, sanitized (handling sheet name limits), and ready for accounting import.
-**Plans**: TBD
+**Plans**: 3 plans
+- [x] 04-01-PLAN.md — DuckDB Analytical Layer
+- [x] 04-02-PLAN.md — Excel Export Service
+- [x] 04-03-PLAN.md — UI Integration & Resilience
 
 ---
 
@@ -75,4 +78,4 @@
 | 1. Ingestion Engine | 3/3 | Completed | 2026-03-13 |
 | 2. Core Extraction | 3/3 | Completed | 2026-03-13 |
 | 3. HITL UI | 3/3 | Completed | 2026-03-14 |
-| 4. Persistence & Export | 0/0 | Not started | - |
+| 4. Persistence & Export | 3/3 | Completed | 2026-03-14 |

@@ -12,6 +12,8 @@ from src.ui.db_utils import (
     update_package_status
 )
 from src.services.coordinate_scaler import normalize_to_canvas
+from src.services.analytical_service import AnalyticalService
+from src.services.export_service import ExcelExporter
 
 def get_confidence_color(confidence: float) -> str:
     """Returns color based on confidence: Green (>0.95), Yellow (0.70-0.95), Red (<0.70)."""
@@ -227,3 +229,34 @@ def show_reviewer(package_id: str):
             if st.button("Back to Dashboard", key="back_to_dashboard", use_container_width=True):
                 st.session_state.current_view = "Dashboard"
                 st.rerun()
+
+        # Single Package Export
+        if package.status == "APPROVED":
+            st.divider()
+            if st.button("Prepare Package Export", use_container_width=True):
+                try:
+                    analytical = AnalyticalService()
+                    exporter = ExcelExporter()
+                    
+                    summary_df = analytical.get_summary()
+                    transactions_df = analytical.get_transactions()
+                    
+                    # Filter dataframes for this package only
+                    filtered_summary = summary_df[summary_df['package_id'] == package_id]
+                    filtered_transactions = transactions_df[transactions_df['package_id'] == package_id]
+                    
+                    # Prepare data for export
+                    summary_data = filtered_summary.rename(columns={'effective_date': 'document_date'}).to_dict('records')
+                    transactions_data = filtered_transactions.to_dict('records')
+                    
+                    excel_stream = exporter.generate_excel(summary_data, transactions_data)
+                    
+                    st.download_button(
+                        label="⬇️ Download Excel",
+                        data=excel_stream,
+                        file_name=f"export_{package.original_filename}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.error(f"Export failed: {str(e)}")
