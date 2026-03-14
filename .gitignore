@@ -12,8 +12,17 @@ ENV/
 
 # Databases
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # IDEs
 .vscode/
 .idea/
+
+# DocExtractor Specific
+ingest/processed/
+ingest/failed/
+test_ingest/
+scripts/reproduce_watcher*.py
+scripts/verify_exclusion.py

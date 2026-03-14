@@ -1,20 +1,20 @@
 import os
 import json
 import glob
+import base64
 from typing import List, Dict, Optional, Any
-from google.genai import types
 from src.services.gemini_client import get_gemini_client
 
 class ClassificationService:
     """
-    Service for document classification using Gemini 1.5 Pro.
+    Service for document classification using OpenRouter (Gemini 2.0 Flash).
     Uses 'classification_cues' from configurations to identify document types.
     """
 
     def __init__(self, configs_path: str = "configs"):
         self.configs_path = configs_path
         self._client = None
-        self.model_id = "gemini-2.5-pro"
+        self.model_id = os.getenv("GEMINI_MODEL", "google/gemini-2.0-flash-001")
         self._doc_type_cues: Dict[str, List[str]] = self._load_cues()
 
     @property
@@ -65,23 +65,30 @@ Return ONLY the document type name as a string (e.g., 'Commercial_Loan_Paydown' 
 """
 
         try:
-            response = self.client.models.generate_content(
+            # Prepare content for OpenRouter (OpenAI-compatible)
+            # We encode the bytes as base64 and use data URL format
+            base64_content = base64.b64encode(content).decode("utf-8")
+            
+            response = self.client.chat.completions.create(
                 model=self.model_id,
-                contents=[
-                    types.Content(
-                        role="user",
-                        parts=[
-                            types.Part.from_bytes(data=content, mime_type=mime_type),
-                            types.Part.from_text(text=prompt)
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{base64_content}"
+                                }
+                            }
                         ]
-                    )
+                    }
                 ],
-                config=types.GenerateContentConfig(
-                    temperature=0.0
-                )
+                temperature=0.0
             )
             
-            result = response.text.strip()
+            result = response.choices[0].message.content.strip()
             # Basic validation that result is in our map or UNKNOWN
             if result in self._doc_type_cues or result == "UNKNOWN":
                 return result

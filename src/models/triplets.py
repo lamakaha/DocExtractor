@@ -12,8 +12,13 @@ class BoundingBox(BaseModel):
     def validate_coordinates(cls, v):
         if any(c < 0 or c > 1000 for c in v):
             raise ValueError("Coordinates must be between 0 and 1000")
+        
+        # Allow [0,0,0,0] as it's often returned by models when a field is not found or not groundable
+        if all(c == 0 for c in v):
+            return v
+            
         if v[0] >= v[2] or v[1] >= v[3]:
-            raise ValueError("Invalid bounding box: ymin must be < ymax and xmin must be < xmax")
+            raise ValueError(f"Invalid bounding box {v}: ymin must be < ymax and xmin must be < xmax")
         return v
 
     @property

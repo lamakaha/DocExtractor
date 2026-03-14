@@ -1,19 +1,19 @@
+import os
 import json
+import base64
 from typing import Dict, Any, List, Optional
-from google.genai import types
-from pydantic import BaseModel, create_model, Field
 from src.services.gemini_client import get_gemini_client
 from src.models.triplets import Triplet, ExtractionResult, BoundingBox
 
 class ExtractionService:
     """
-    Service for structured document extraction using Gemini 1.5 Pro.
+    Service for structured document extraction using OpenRouter (Gemini 2.0 Flash).
     Returns results as Triplets (Value, Confidence, BBox).
     """
 
     def __init__(self):
         self._client = None
-        self.model_id = "gemini-2.5-pro"
+        self.model_id = os.getenv("GEMINI_MODEL", "google/gemini-2.0-flash-001")
 
     @property
     def client(self):
@@ -21,22 +21,22 @@ class ExtractionService:
             self._client = get_gemini_client()
         return self._client
 
-    def _convert_schema_to_gemini(self, extraction_schema: Dict[str, Any]) -> Dict[str, Any]:
+    def _convert_schema_to_json_schema(self, extraction_schema: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Converts a configuration extraction schema into a Gemini-compatible JSON schema.
+        Converts a configuration extraction schema into a standard JSON schema.
         Each field is expected to be returned as a Triplet structure.
         """
         properties = {}
         required = []
 
         triplet_schema = {
-            "type": "OBJECT",
+            "type": "object",
             "properties": {
-                "value": {"type": "STRING", "description": "The extracted value (string, number, or date)."},
-                "confidence": {"type": "NUMBER", "description": "Confidence score 0-1.0."},
+                "value": {"type": "string", "description": "The extracted value (string, number, or date)."},
+                "confidence": {"type": "number", "description": "Confidence score 0-1.0."},
                 "bbox": {
-                    "type": "ARRAY",
-                    "items": {"type": "INTEGER"},
+                    "type": "array",
+                    "items": {"type": "integer"},
                     "description": "Normalized bounding box [ymin, xmin, ymax, xmax] (0-1000).",
                     "minItems": 4,
                     "maxItems": 4
@@ -59,9 +59,9 @@ class ExtractionService:
                     item_required.append(sub_field)
                 
                 properties[field_name] = {
-                    "type": "ARRAY",
+                    "type": "array",
                     "items": {
-                        "type": "OBJECT",
+                        "type": "object",
                         "properties": item_properties,
                         "required": item_required
                     },
@@ -74,7 +74,7 @@ class ExtractionService:
             required.append(field_name)
 
         return {
-            "type": "OBJECT",
+            "type": "object",
             "properties": properties,
             "required": required
         }
@@ -84,9 +84,8 @@ class ExtractionService:
         Recursively converts raw JSON extraction into Triplet objects.
         """
         if isinstance(data, dict):
-            if "value" in data and "confidence" in data and ("bbox" in data or "bbox" not in data):
-                # This looks like a triplet-like structure from Gemini
-                # Note: 'bbox' might be missing if field not found, though schema requires it
+            if "value" in data and "confidence" in data:
+                # This looks like a triplet-like structure from LLM
                 bbox_raw = data.get("bbox")
                 bbox = BoundingBox(coordinates=bbox_raw) if bbox_raw else None
                 
@@ -114,9 +113,9 @@ class ExtractionService:
 
     def extract(self, content: bytes, mime_type: str, doc_type: str, extraction_schema: Dict[str, Any]) -> ExtractionResult:
         """
-        Extracts structured data from a document package using Gemini 1.5 Pro.
+        Extracts structured data from a document package using OpenRouter.
         """
-        gemini_schema = self._convert_schema_to_gemini(extraction_schema)
+        json_schema = self._convert_schema_to_json_schema(extraction_schema)
 
         prompt = f"""Extract data from this '{doc_type}' document as structured JSON.
 For every field, provide:
@@ -129,25 +128,39 @@ If a field is not found, use null for value and 0.0 for confidence.
 """
 
         try:
-            response = self.client.models.generate_content(
+            # Prepare content for OpenRouter (OpenAI-compatible)
+            base64_content = base64.b64encode(content).decode("utf-8")
+
+            # We use response_format if supported, or just ask for JSON in prompt
+            # Many models support JSON mode through response_format
+            response = self.client.chat.completions.create(
                 model=self.model_id,
-                contents=[
-                    types.Content(
-                        role="user",
-                        parts=[
-                            types.Part.from_bytes(data=content, mime_type=mime_type),
-                            types.Part.from_text(text=prompt)
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{base64_content}"
+                                }
+                            }
                         ]
-                    )
+                    }
                 ],
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=gemini_schema,
-                    temperature=0.0
-                )
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "document_extraction",
+                        "strict": False,
+                        "schema": json_schema
+                    }
+                },
+                temperature=0.0
             )
 
-            raw_data = response.text
+            raw_data = response.choices[0].message.content
             extracted_fields_json = json.loads(raw_data)
             
             # Convert JSON to Triplet objects and validate

@@ -15,7 +15,7 @@ def mock_gemini_client():
         mock_get.return_value = mock_client
         yield mock_client
 
-def test_convert_schema_to_gemini(mock_gemini_client):
+def test_convert_schema_to_json_schema(mock_gemini_client):
     service = ExtractionService()
     extraction_schema = {
         "lender_name": {"description": "Lender Name", "type": "string"},
@@ -27,21 +27,22 @@ def test_convert_schema_to_gemini(mock_gemini_client):
             }
         }
     }
-    gemini_schema = service._convert_schema_to_gemini(extraction_schema)
+    json_schema = service._convert_schema_to_json_schema(extraction_schema)
     
-    assert gemini_schema["type"] == "OBJECT"
-    assert "lender_name" in gemini_schema["properties"]
-    assert "transactions" in gemini_schema["properties"]
-    assert gemini_schema["properties"]["transactions"]["type"] == "ARRAY"
-    assert "amount" in gemini_schema["properties"]["transactions"]["items"]["properties"]
+    assert json_schema["type"] == "object"
+    assert "lender_name" in json_schema["properties"]
+    assert "transactions" in json_schema["properties"]
+    assert json_schema["properties"]["transactions"]["type"] == "array"
+    assert "amount" in json_schema["properties"]["transactions"]["items"]["properties"]
 
 def test_extract_simple_field(mock_gemini_client):
     service = ExtractionService()
     
-    # Mock response from Gemini
+    # Mock response from OpenAI/OpenRouter
     mock_response = MagicMock()
-    mock_response.text = '{"lender_name": {"value": "Test Bank", "confidence": 0.99, "bbox": [10, 20, 30, 40]}}'
-    mock_gemini_client.models.generate_content.return_value = mock_response
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = '{"lender_name": {"value": "Test Bank", "confidence": 0.99, "bbox": [10, 20, 30, 40]}}'
+    mock_gemini_client.chat.completions.create.return_value = mock_response
     
     schema = {"lender_name": {"type": "string"}}
     result = service.extract(b"dummy content", "image/png", "Test_Doc", schema)
@@ -56,9 +57,10 @@ def test_extract_simple_field(mock_gemini_client):
 def test_extract_list_field(mock_gemini_client):
     service = ExtractionService()
     
-    # Mock response from Gemini with list of items
+    # Mock response from OpenAI/OpenRouter with list of items
     mock_response = MagicMock()
-    mock_response.text = """
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = """
     {
         "transactions": [
             {
@@ -70,7 +72,7 @@ def test_extract_list_field(mock_gemini_client):
         ]
     }
     """
-    mock_gemini_client.models.generate_content.return_value = mock_response
+    mock_gemini_client.chat.completions.create.return_value = mock_response
     
     schema = {
         "transactions": {

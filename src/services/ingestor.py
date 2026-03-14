@@ -7,6 +7,7 @@ import logging
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from src.models.schema import Package, ExtractedFile
+from src.utils.logging_utils import log_package_event
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -44,10 +45,12 @@ class RecursiveIngestor:
         Returns the package ID.
         """
         # 1. Create a Package record in the database
-        package = Package(original_filename=original_filename, status="INGESTING")
+        package = Package(original_filename=original_filename, status="PENDING")
         db.add(package)
         db.commit()
         db.refresh(package)
+
+        log_package_event(package.id, "INGESTION", f"Started ingestion of {original_filename}", new_status="INGESTING")
 
         try:
             # 2. Runs the RecursiveIngestor on the input file
@@ -55,6 +58,8 @@ class RecursiveIngestor:
                 content = f.read()
             
             extracted_results = self.extract(content, original_filename)
+
+            log_package_event(package.id, "INGESTION", f"Extracted {len(extracted_results)} files from package")
 
             # 3. Persists all resulting ExtractedFile objects to the database, linked to the Package
             for res in extracted_results:
@@ -70,12 +75,10 @@ class RecursiveIngestor:
                 db.add(ext_file)
             
             # 4. Updates Package status to INGESTED
-            package.status = "INGESTED"
             db.commit()
+            log_package_event(package.id, "INGESTION", "Ingestion completed successfully", level="SUCCESS", new_status="INGESTED")
         except Exception as e:
-            logger.error(f"Error processing package {original_filename}: {e}")
-            package.status = "FAILED"
-            db.commit()
+            log_package_event(package.id, "INGESTION", f"Ingestion failed: {str(e)}", level="ERROR", new_status="FAILED")
             raise
         
         return package.id
@@ -83,7 +86,8 @@ class RecursiveIngestor:
     def _get_mime(self, content: bytes, filename: str) -> str:
         if self.mime:
             try:
-                return self.mime.from_buffer(content)
+                m = self.mime.from_buffer(content)
+                if m: return m
             except Exception:
                 pass
         
@@ -99,6 +103,12 @@ class RecursiveIngestor:
             return 'image/jpeg'
         elif ext == 'png':
             return 'image/png'
+        elif ext == 'txt':
+            return 'text/plain'
+        elif ext == 'csv':
+            return 'text/csv'
+        elif ext == 'html':
+            return 'text/html'
         return 'application/octet-stream'
 
     def _is_archive(self, mime_type: str, filename: str) -> bool:
@@ -263,4 +273,3 @@ class RecursiveIngestor:
             })
             
         return results
-

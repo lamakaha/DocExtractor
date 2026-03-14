@@ -34,10 +34,11 @@ def test_classify(mock_gemini_client):
         mock_load.return_value = {"Commercial_Loan_Paydown": ["cue1"]}
         service = ClassificationService()
         
-        # Mock response from Gemini
+        # Mock response from OpenAI/OpenRouter
         mock_response = MagicMock()
-        mock_response.text = "Commercial_Loan_Paydown"
-        mock_gemini_client.models.generate_content.return_value = mock_response
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "Commercial_Loan_Paydown"
+        mock_gemini_client.chat.completions.create.return_value = mock_response
         
         result = service.classify(b"dummy", "application/pdf")
         assert result == "Commercial_Loan_Paydown"
@@ -47,10 +48,11 @@ def test_classify_unknown(mock_gemini_client):
         mock_load.return_value = {"TypeA": ["cue1"]}
         service = ClassificationService()
         
-        # Mock response from Gemini
+        # Mock response from OpenAI/OpenRouter
         mock_response = MagicMock()
-        mock_response.text = "Something else entirely"
-        mock_gemini_client.models.generate_content.return_value = mock_response
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "Something else entirely"
+        mock_gemini_client.chat.completions.create.return_value = mock_response
         
         result = service.classify(b"dummy", "application/pdf")
         assert result == "UNKNOWN"

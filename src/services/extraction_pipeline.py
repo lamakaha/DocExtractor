@@ -14,6 +14,7 @@ from src.models.triplets import Triplet, ExtractionResult
 from src.services.classification_service import ClassificationService
 from src.services.extraction_service import ExtractionService
 from src.services.coordinate_scaler import CoordinateScaler
+from src.utils.logging_utils import log_package_event
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -70,46 +71,46 @@ class ExtractionPipeline:
             logger.error(f"Package {package_id} not found.")
             return
 
+        log_package_event(package_id, "PIPELINE", f"Started pipeline for {package.original_filename}")
+
         try:
-            logger.info(f"Processing package {package_id} ({package.original_filename})")
-            
             # 1. Fetch extracted files
             files = session.query(ExtractedFile).filter(ExtractedFile.package_id == package_id).all()
             if not files:
-                logger.warning(f"No files found for package {package_id}")
-                package.status = "FAILED"
-                session.commit()
+                log_package_event(package_id, "PIPELINE", "No files found for package", level="WARNING", new_status="FAILED")
                 return
 
             # 2. Document conversion & Context aggregation
-            # We look for the "main" document for classification.
-            # Usually a PDF or an Image. Email body can provide context.
+            log_package_event(package_id, "PIPELINE", f"Preparing document for classification (found {len(files)} files)")
             email_body = ""
             main_document_file = None
             
+            # Supported primary document types
+            visual_mimes = ["application/pdf", "image/png", "image/jpeg", "image/webp"]
+            textual_mimes = ["text/plain", "text/html", "text/csv"]
+
             for f in files:
-                if f.mime_type in ["text/plain", "text/html"]:
-                    email_body += (f.extracted_text or "") + "\n"
+                if f.mime_type in textual_mimes:
+                    text_content = f.extracted_text or (f.content.decode('utf-8', errors='ignore') if f.content else "")
+                    email_body += text_content + "\n"
                     # Use text file as fallback if no processable doc found yet
                     if not main_document_file:
                         main_document_file = f
-                elif f.mime_type in ["application/pdf", "image/png", "image/jpeg", "image/webp"]:
+                elif f.mime_type in visual_mimes:
                     # Prefer PDF/Image over text
-                    if not main_document_file or main_document_file.mime_type in ["text/plain", "text/html"]:
+                    if not main_document_file or main_document_file.mime_type in textual_mimes:
                         main_document_file = f
             
             if not main_document_file:
-                logger.warning(f"No processable document found in package {package_id}")
-                package.status = "FAILED"
-                session.commit()
+                log_package_event(package_id, "PIPELINE", "No processable document found in package", level="ERROR", new_status="FAILED")
                 return
 
-            # Prepare items for extraction
-            # Each entry: (content_bytes, mime_type, width, height, source_file_id, page_num)
-            items_to_process = []
+            log_package_event(package_id, "PIPELINE", f"Selected '{main_document_file.filename}' as primary document")
 
+            # Prepare items for extraction
+            items_to_process = []
             if main_document_file.mime_type == "application/pdf":
-                # Convert PDF to images
+                log_package_event(package_id, "PIPELINE", "Converting PDF to images for processing")
                 try:
                     pdf_pages = convert_from_bytes(main_document_file.content)
                     for i, page in enumerate(pdf_pages):
@@ -123,11 +124,11 @@ class ExtractionPipeline:
                             "file_id": main_document_file.id,
                             "page_num": i + 1
                         })
+                    log_package_event(package_id, "PIPELINE", f"Converted PDF to {len(items_to_process)} pages")
                 except Exception as e:
-                    logger.error(f"Failed to convert PDF to images: {e}")
+                    log_package_event(package_id, "PIPELINE", f"PDF conversion failed: {str(e)}", level="ERROR")
                     raise
             elif main_document_file.mime_type in ["image/png", "image/jpeg", "image/webp"]:
-                # Handle image
                 try:
                     img = Image.open(io.BytesIO(main_document_file.content))
                     items_to_process.append({
@@ -138,15 +139,14 @@ class ExtractionPipeline:
                         "file_id": main_document_file.id,
                         "page_num": 1
                     })
-                    # Update dimensions in DB if missing
                     if not main_document_file.width or not main_document_file.height:
                         main_document_file.width = img.width
                         main_document_file.height = img.height
                 except Exception as e:
-                    logger.error(f"Failed to load image: {e}")
+                    log_package_event(package_id, "PIPELINE", f"Image loading failed: {str(e)}", level="ERROR")
                     raise
             else:
-                # Handle text-only or other types supported by Gemini
+                # Handle text-only (txt, csv, html)
                 content = main_document_file.extracted_text.encode() if main_document_file.extracted_text else main_document_file.content
                 items_to_process.append({
                     "content": content,
@@ -158,7 +158,7 @@ class ExtractionPipeline:
                 })
 
             # 3. Classification
-            # Use the first item for classification
+            log_package_event(package_id, "CLASSIFICATION", "Starting document classification", new_status="CLASSIFYING")
             first_item = items_to_process[0]
             doc_type = self.classification_service.classify(
                 content=first_item["content"],
@@ -166,23 +166,23 @@ class ExtractionPipeline:
             )
             
             if doc_type == "UNKNOWN":
-                logger.warning(f"Document type UNKNOWN for package {package_id}")
-                package.status = "FAILED"
-                session.commit()
+                log_package_event(package_id, "CLASSIFICATION", "Document type UNKNOWN", level="WARNING", new_status="FAILED")
                 return
 
-            logger.info(f"Classified package {package_id} as {doc_type}")
+            log_package_event(package_id, "CLASSIFICATION", f"Document classified as '{doc_type}'", level="SUCCESS")
 
             # 4. Extraction
+            log_package_event(package_id, "EXTRACTION", f"Starting extraction for type '{doc_type}'", new_status="EXTRACTING")
             schema = self._load_schema(doc_type)
             if not schema:
-                logger.error(f"No extraction schema found for type {doc_type}")
-                package.status = "FAILED"
-                session.commit()
+                log_package_event(package_id, "EXTRACTION", f"No extraction schema found for type {doc_type}", level="ERROR", new_status="FAILED")
                 return
 
             all_results = []
             for item_data in items_to_process:
+                page_info = f" (Page {item_data['page_num']})" if item_data['page_num'] > 1 else ""
+                log_package_event(package_id, "EXTRACTION", f"Extracting data{page_info}")
+                
                 result = self.extraction_service.extract(
                     content=item_data["content"],
                     mime_type=item_data["mime_type"],
@@ -217,14 +217,13 @@ class ExtractionPipeline:
                 all_results.append(scaled_result_dict)
 
             # Update package status
-            package.status = "EXTRACTED"
             session.commit()
-            logger.info(f"Successfully processed package {package_id}")
+            log_package_event(package_id, "EXTRACTION", "Extraction completed successfully", level="SUCCESS", new_status="EXTRACTED")
+            log_package_event(package_id, "PIPELINE", "Pipeline completed successfully", level="SUCCESS")
 
         except Exception as e:
-            logger.exception(f"Error processing package {package_id}: {e}")
-            package.status = "FAILED"
-            session.commit()
+            log_package_event(package_id, "PIPELINE", f"Pipeline failed: {str(e)}", level="ERROR", new_status="FAILED")
+            session.rollback()
 
     async def process_packages_parallel(self, package_ids: List[str], max_workers: int = 5):
         """

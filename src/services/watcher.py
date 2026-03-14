@@ -2,6 +2,7 @@ import os
 import time
 import shutil
 import logging
+from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from src.db.session import db_session
@@ -17,8 +18,8 @@ class IngestionHandler(FileSystemEventHandler):
     Handles file system events in the ingest directory.
     """
     def __init__(self, processed_dir: str, failed_dir: str):
-        self.processed_dir = processed_dir
-        self.failed_dir = failed_dir
+        self.processed_dir = Path(processed_dir).resolve()
+        self.failed_dir = Path(failed_dir).resolve()
         self.ingestor = RecursiveIngestor()
         self.pipeline = ExtractionPipeline()
 
@@ -31,19 +32,23 @@ class IngestionHandler(FileSystemEventHandler):
             self._process_new_file(event.dest_path)
 
     def _process_new_file(self, file_path: str):
-        filename = os.path.basename(file_path)
+        path = Path(file_path).resolve()
+        filename = path.name
         
-        # Avoid processing files already in subdirectories
-        if self.processed_dir in file_path or self.failed_dir in file_path:
+        # Avoid processing files strictly inside system subdirectories (processed/failed)
+        # Using .parents or checking if the path starts with the base dir
+        if self.processed_dir in path.parents or path.parent == self.processed_dir:
+            return
+        if self.failed_dir in path.parents or path.parent == self.failed_dir:
             return
 
         # Filter for supported extensions
         ext = filename.lower().split('.')[-1]
-        if ext not in ['zip', 'eml', 'pdf', 'png', 'jpg', 'jpeg']:
+        if ext not in ['zip', 'eml', 'pdf', 'png', 'jpg', 'jpeg', 'txt', 'csv']:
             logger.info(f"Ignoring file with unsupported extension: {filename}")
             return
 
-        logger.info(f"New file detected: {filename}. Starting pipeline...")
+        logger.info(f"New file detected: {file_path}. Starting pipeline...")
         
         # Wait a brief moment to ensure file is fully written (especially for large files)
         time.sleep(1)
@@ -51,7 +56,7 @@ class IngestionHandler(FileSystemEventHandler):
         session = db_session()
         try:
             # 1. Ingestion
-            package_id = self.ingestor.process_package(session, file_path, filename)
+            package_id = self.ingestor.process_package(session, str(path), filename)
             logger.info(f"Ingested {filename} -> Package ID: {package_id}")
 
             # 2. Extraction
@@ -60,26 +65,28 @@ class IngestionHandler(FileSystemEventHandler):
             logger.info(f"Extraction complete for Package ID: {package_id}")
 
             # 3. Move to processed
-            dest_path = os.path.join(self.processed_dir, filename)
+            dest_path = self.processed_dir / filename
             # Handle filename collisions in processed dir
-            if os.path.exists(dest_path):
-                base, ext = os.path.splitext(filename)
-                dest_path = os.path.join(self.processed_dir, f"{base}_{int(time.time())}{ext}")
+            if dest_path.exists():
+                base = dest_path.stem
+                ext_orig = dest_path.suffix
+                dest_path = self.processed_dir / f"{base}_{int(time.time())}{ext_orig}"
             
-            shutil.move(file_path, dest_path)
-            logger.info(f"Moved {filename} to {self.processed_dir}")
+            shutil.move(str(path), str(dest_path))
+            logger.info(f"Moved {file_path} to {dest_path}")
 
         except Exception as e:
             logger.error(f"Failed to process {filename}: {str(e)}")
             # Move to failed
-            dest_path = os.path.join(self.failed_dir, filename)
-            if os.path.exists(dest_path):
-                base, ext = os.path.splitext(filename)
-                dest_path = os.path.join(self.failed_dir, f"{base}_{int(time.time())}{ext}")
+            dest_path = self.failed_dir / filename
+            if dest_path.exists():
+                base = dest_path.stem
+                ext_orig = dest_path.suffix
+                dest_path = self.failed_dir / f"{base}_{int(time.time())}{ext_orig}"
             
             try:
-                shutil.move(file_path, dest_path)
-                logger.info(f"Moved {filename} to {self.failed_dir}")
+                shutil.move(str(path), str(dest_path))
+                logger.info(f"Moved {file_path} to {dest_path}")
             except Exception as move_err:
                 logger.error(f"Critical: Could not move failed file {filename}: {move_err}")
         finally:
@@ -102,8 +109,8 @@ class FileWatcher:
         self.handler = IngestionHandler(self.processed_dir, self.failed_dir)
 
     def start(self, blocking: bool = True):
-        logger.info(f"Starting file watcher on: {self.watch_dir}")
-        self.observer.schedule(self.handler, self.watch_dir, recursive=False)
+        logger.info(f"Starting file watcher on: {self.watch_dir} (recursive=True)")
+        self.observer.schedule(self.handler, self.watch_dir, recursive=True)
         self.observer.start()
         if blocking:
             try:

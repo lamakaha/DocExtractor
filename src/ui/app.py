@@ -11,17 +11,18 @@ st.set_page_config(
     layout="wide",
 )
 
-# Early check for Gemini API Key
-if not os.getenv("GEMINI_API_KEY"):
+# Early check for OpenRouter API Key
+if not os.getenv("OPENROUTER_API_KEY") and not os.getenv("GEMINI_API_KEY"):
     st.title("DocExtractor")
-    st.error("🔑 **GEMINI_API_KEY is not set.**")
+    st.error("🔑 **OPENROUTER_API_KEY is not set.**")
     st.info("""
-    To use this application, you need a Google Gemini API Key.
+    To use this application, you need an OpenRouter API Key.
     
     1. Create a file named `.env` in the project root directory.
     2. Add the following line to the file:
        ```
-       GEMINI_API_KEY=your_actual_api_key_here
+       OPENROUTER_API_KEY=your_actual_api_key_here
+       GEMINI_MODEL=google/gemini-2.0-flash-001
        ```
     3. Restart the Streamlit application.
     

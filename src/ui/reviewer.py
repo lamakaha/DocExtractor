@@ -11,6 +11,7 @@ from src.ui.db_utils import (
     update_extraction, 
     update_package_status
 )
+from src.utils.logging_utils import log_package_event
 from src.services.coordinate_scaler import normalize_to_canvas
 from src.services.analytical_service import AnalyticalService
 from src.services.export_service import ExcelExporter
@@ -221,6 +222,8 @@ def show_reviewer(package_id: str):
                 # Convert back to JSON for storage
                 update_extraction(current_extraction.id, json.dumps(updated_data, default=serialize_triplet), is_reviewed=True)
                 update_package_status(package_id, "APPROVED")
+                log_package_event(package_id, "REVIEW", "Package manually approved by user", level="SUCCESS", new_status="APPROVED")
+                
                 st.toast("Extraction approved!")
                 st.session_state.current_view = "Dashboard"
                 st.rerun()

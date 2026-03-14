@@ -1,6 +1,6 @@
 from typing import List, Optional
 from src.db.session import db_session
-from src.models.schema import Package, Extractions, ExtractedFile
+from src.models.schema import Package, Extractions, ExtractedFile, PackageLog
 
 def get_all_packages(status_filter: Optional[List[str]] = None) -> List[Package]:
     """Fetch all packages, optionally filtered by status."""
@@ -20,6 +20,10 @@ def get_extractions_for_package(package_id: str) -> List[Extractions]:
 def get_files_for_package(package_id: str) -> List[ExtractedFile]:
     """Fetch all files associated with a package."""
     return db_session.query(ExtractedFile).filter(ExtractedFile.package_id == package_id).all()
+
+def get_package_logs(package_id: str) -> List[PackageLog]:
+    """Fetch all logs for a specific package."""
+    return db_session.query(PackageLog).filter(PackageLog.package_id == package_id).order_by(PackageLog.timestamp.asc()).all()
 
 def update_extraction(extraction_id: int, updated_json: str, is_reviewed: bool = True):
     """Update extraction JSON and mark as reviewed."""
