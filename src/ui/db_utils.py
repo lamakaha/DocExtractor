@@ -1,0 +1,37 @@
+from typing import List, Optional
+from src.db.session import db_session
+from src.models.schema import Package, Extractions, ExtractedFile
+
+def get_all_packages(status_filter: Optional[List[str]] = None) -> List[Package]:
+    """Fetch all packages, optionally filtered by status."""
+    query = db_session.query(Package)
+    if status_filter:
+        query = query.filter(Package.status.in_(status_filter))
+    return query.order_by(Package.created_at.desc()).all()
+
+def get_package_by_id(package_id: str) -> Optional[Package]:
+    """Fetch a single package by its ID."""
+    return db_session.query(Package).filter(Package.id == package_id).first()
+
+def get_extractions_for_package(package_id: str) -> List[Extractions]:
+    """Fetch all extraction records associated with a package."""
+    return db_session.query(Extractions).filter(Extractions.package_id == package_id).all()
+
+def get_files_for_package(package_id: str) -> List[ExtractedFile]:
+    """Fetch all files associated with a package."""
+    return db_session.query(ExtractedFile).filter(ExtractedFile.package_id == package_id).all()
+
+def update_extraction(extraction_id: int, updated_json: str, is_reviewed: bool = True):
+    """Update extraction JSON and mark as reviewed."""
+    extraction = db_session.query(Extractions).filter(Extractions.id == extraction_id).first()
+    if extraction:
+        extraction.extraction_json = updated_json
+        extraction.is_reviewed = is_reviewed
+        db_session.commit()
+
+def update_package_status(package_id: str, status: str):
+    """Update the status of a package."""
+    package = db_session.query(Package).filter(Package.id == package_id).first()
+    if package:
+        package.status = status
+        db_session.commit()

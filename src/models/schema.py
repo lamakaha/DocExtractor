@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, ForeignKey, LargeBinary, Text, DateTime, Float
+from sqlalchemy import Column, String, Integer, ForeignKey, LargeBinary, Text, DateTime, Float, Boolean
 from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
@@ -47,6 +47,7 @@ class Extractions(Base):
     document_type = Column(String, nullable=False)
     extraction_json = Column(Text) # JSON string of raw triplets
     confidence_score = Column(Float) # Aggregate confidence
+    is_reviewed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     package = relationship("Package")
