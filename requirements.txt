@@ -5,3 +5,6 @@ pytest
 Pillow
 python-magic
 python-magic-bin; platform_system == 'Windows'
+google-genai
+pdf2image
+python-dotenv

@@ -1,13 +1,13 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: Phase 2: Core Extraction
-- **Progress**: 25%
+- **Current Phase**: Phase 3: HITL UI
+- **Progress**: 50%
 - **Last Updated**: 2026-03-13
 
 ## Phases
 - [x] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
-- [ ] **Phase 2: Core Extraction** - Gemini 1.5 Pro integration for classification and Triplet-based extraction with Pydantic validation.
+- [x] **Phase 2: Core Extraction** - Gemini 1.5 Pro integration for classification and Triplet-based extraction with Pydantic validation.
 - [ ] **Phase 3: HITL UI** - Streamlit dashboard for side-by-side review, visual grounding, and manual correction.
 - [ ] **Phase 4: Persistence & Export** - Hybrid SQLite/DuckDB storage and multi-tab Excel reporting via xlsxwriter.
 
@@ -39,9 +39,9 @@
   4. Extracted data passes Pydantic validation against the `extraction_schema`.
   5. System supports concurrent processing of multiple extraction jobs.
 **Plans**: 3 plans
-- [ ] 02-01-PLAN.md — Extraction Foundation & Scaling
-- [ ] 02-02-PLAN.md — Classification & Extraction Services
-- [ ] 02-03-PLAN.md — Extraction Pipeline & Concurrency
+- [x] 02-01-PLAN.md — Extraction Foundation & Scaling
+- [x] 02-02-PLAN.md — Classification & Extraction Services
+- [x] 02-03-PLAN.md — Extraction Pipeline & Concurrency
 
 ### Phase 3: HITL UI
 **Goal**: Provide a professional review interface to ensure 100% data integrity.
@@ -70,6 +70,6 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Ingestion Engine | 3/3 | Completed | 2026-03-13 |
-| 2. Core Extraction | 0/3 | In Progress | - |
+| 2. Core Extraction | 3/3 | Completed | 2026-03-13 |
 | 3. HITL UI | 0/0 | Not started | - |
 | 4. Persistence & Export | 0/0 | Not started | - |

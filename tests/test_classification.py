@@ -1,0 +1,56 @@
+import pytest
+from unittest.mock import MagicMock, patch
+from src.services.classification_service import ClassificationService
+
+@pytest.fixture(autouse=True)
+def mock_env():
+    with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
+        yield
+
+@pytest.fixture
+def mock_gemini_client():
+    with patch("src.services.classification_service.get_gemini_client") as mock_get:
+        mock_client = MagicMock()
+        mock_get.return_value = mock_client
+        yield mock_client
+
+def test_load_cues():
+    with patch("glob.glob") as mock_glob, \
+         patch("builtins.open", MagicMock()) as mock_open, \
+         patch("json.load") as mock_json_load:
+        
+        mock_glob.return_value = ["configs/test.json"]
+        mock_json_load.return_value = {
+            "document_type": "TestType",
+            "classification_cues": ["Cue1", "Cue2"]
+        }
+        
+        service = ClassificationService()
+        assert "TestType" in service._doc_type_cues
+        assert service._doc_type_cues["TestType"] == ["Cue1", "Cue2"]
+
+def test_classify(mock_gemini_client):
+    with patch.object(ClassificationService, "_load_cues") as mock_load:
+        mock_load.return_value = {"Commercial_Loan_Paydown": ["cue1"]}
+        service = ClassificationService()
+        
+        # Mock response from Gemini
+        mock_response = MagicMock()
+        mock_response.text = "Commercial_Loan_Paydown"
+        mock_gemini_client.models.generate_content.return_value = mock_response
+        
+        result = service.classify(b"dummy", "application/pdf")
+        assert result == "Commercial_Loan_Paydown"
+
+def test_classify_unknown(mock_gemini_client):
+    with patch.object(ClassificationService, "_load_cues") as mock_load:
+        mock_load.return_value = {"TypeA": ["cue1"]}
+        service = ClassificationService()
+        
+        # Mock response from Gemini
+        mock_response = MagicMock()
+        mock_response.text = "Something else entirely"
+        mock_gemini_client.models.generate_content.return_value = mock_response
+        
+        result = service.classify(b"dummy", "application/pdf")
+        assert result == "UNKNOWN"
