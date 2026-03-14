@@ -1,5 +1,6 @@
 import streamlit as st
 from src.ui.dashboard import render_dashboard
+from src.ui.reviewer import show_reviewer
 
 # Page config
 st.set_page_config(
@@ -27,8 +28,7 @@ if st.session_state.current_view == "Dashboard":
     render_dashboard()
 elif st.session_state.current_view == "Reviewer":
     if st.session_state.current_package_id:
-        st.header(f"Reviewing Package: {st.session_state.current_package_id}")
-        st.info("Reviewer UI coming soon.")
+        show_reviewer(st.session_state.current_package_id)
     else:
         st.header("Reviewer")
         st.warning("Please select a package from the Dashboard to review.")

@@ -47,3 +47,18 @@ def test_rounding():
     # 999 * 100 / 1000 = 99.9 -> 99
     # 1000 * 100 / 1000 = 100
     assert scaler.normalize_to_pixel(bbox_norm, img_width, img_height) == [99, 99, 100, 100]
+
+def test_pixel_to_canvas():
+    scaler = CoordinateScaler()
+    img_width, img_height = 2000, 3000
+    canvas_width = 1000  # 50% scale
+    
+    # Half size
+    bbox_pixel = [1000, 1000, 2000, 2000]
+    expected_canvas = [500, 500, 1000, 1000]
+    assert scaler.pixel_to_canvas(bbox_pixel, img_width, img_height, canvas_width) == expected_canvas
+    
+    # 25% size
+    canvas_width = 500
+    expected_canvas = [250, 250, 500, 500]
+    assert scaler.pixel_to_canvas(bbox_pixel, img_width, img_height, canvas_width) == expected_canvas

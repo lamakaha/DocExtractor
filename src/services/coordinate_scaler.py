@@ -58,3 +58,51 @@ class CoordinateScaler:
         norm_xmax = max(0, min(norm_xmax, 1000))
 
         return [norm_ymin, norm_xmin, norm_ymax, norm_xmax]
+
+    @staticmethod
+    def pixel_to_canvas(bbox_pixels: List[int], img_width: int, img_height: int, canvas_width: int) -> List[int]:        
+        """
+        Scales pixel coordinates [ymin, xmin, ymax, xmax] to canvas display size.
+        Maintains aspect ratio based on canvas_width.
+        Returns [ymin, xmin, ymax, xmax] in canvas units.
+        """
+        if len(bbox_pixels) != 4:
+            raise ValueError("Bounding box must have exactly 4 coordinates [ymin, xmin, ymax, xmax]")
+
+        scale_factor = canvas_width / img_width
+
+        ymin, xmin, ymax, xmax = bbox_pixels
+
+        canvas_ymin = int(ymin * scale_factor)
+        canvas_xmin = int(xmin * scale_factor)
+        canvas_ymax = int(ymax * scale_factor)
+        canvas_xmax = int(xmax * scale_factor)
+
+        return [canvas_ymin, canvas_xmin, canvas_ymax, canvas_xmax]
+
+# Convenience exports as module-level functions
+def normalize_to_pixel(bbox_normalized: List[int], img_width: int, img_height: int) -> List[int]:
+    return CoordinateScaler.normalize_to_pixel(bbox_normalized, img_width, img_height)
+
+def pixel_to_normalize(bbox_pixels: List[int], img_width: int, img_height: int) -> List[int]:
+    return CoordinateScaler.pixel_to_normalize(bbox_pixels, img_width, img_height)
+
+def pixel_to_canvas(bbox_pixels: List[int], img_width: int, img_height: int, canvas_width: int) -> List[int]:
+    return CoordinateScaler.pixel_to_canvas(bbox_pixels, img_width, img_height, canvas_width)
+
+def normalize_to_canvas(bbox_normalized: List[int], canvas_width: int, canvas_height: int) -> List[int]:
+    """
+    Converts Gemini [ymin, xmin, ymax, xmax] (0-1000) to canvas coordinates [left, top, width, height].
+    """
+    if not bbox_normalized or len(bbox_normalized) != 4:
+        return [0, 0, 0, 0]
+        
+    ymin, xmin, ymax, xmax = bbox_normalized
+    
+    top = int(ymin * canvas_height / 1000)
+    left = int(xmin * canvas_width / 1000)
+    bottom = int(ymax * canvas_height / 1000)
+    right = int(xmax * canvas_width / 1000)
+    
+    # [left, top, width, height]
+    return [left, top, right - left, bottom - top]
