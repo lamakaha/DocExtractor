@@ -12,8 +12,14 @@ class ExtractionService:
     """
 
     def __init__(self):
-        self.client = get_gemini_client()
+        self._client = None
         self.model_id = "gemini-1.5-pro"
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = get_gemini_client()
+        return self._client
 
     def _convert_schema_to_gemini(self, extraction_schema: Dict[str, Any]) -> Dict[str, Any]:
         """

@@ -1,12 +1,36 @@
+import os
 import streamlit as st
-from src.ui.dashboard import render_dashboard
-from src.ui.reviewer import show_reviewer
+from dotenv import load_dotenv
+
+# Load environment variables early
+load_dotenv()
 
 # Page config
 st.set_page_config(
     page_title="DocExtractor - Human-In-The-Loop Reviewer",
     layout="wide",
 )
+
+# Early check for Gemini API Key
+if not os.getenv("GEMINI_API_KEY"):
+    st.title("DocExtractor")
+    st.error("🔑 **GEMINI_API_KEY is not set.**")
+    st.info("""
+    To use this application, you need a Google Gemini API Key.
+    
+    1. Create a file named `.env` in the project root directory.
+    2. Add the following line to the file:
+       ```
+       GEMINI_API_KEY=your_actual_api_key_here
+       ```
+    3. Restart the Streamlit application.
+    
+    *Note: You can use `.env.example` as a template.*
+    """)
+    st.stop()
+
+from src.ui.dashboard import render_dashboard
+from src.ui.reviewer import show_reviewer
 
 # Initialize session state
 if 'current_view' not in st.session_state:
