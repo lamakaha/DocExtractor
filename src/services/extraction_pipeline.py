@@ -90,8 +90,12 @@ class ExtractionPipeline:
             for f in files:
                 if f.mime_type in ["text/plain", "text/html"]:
                     email_body += (f.extracted_text or "") + "\n"
-                elif f.mime_type in ["application/pdf", "image/png", "image/jpeg", "image/webp"]:
+                    # Use text file as fallback if no processable doc found yet
                     if not main_document_file:
+                        main_document_file = f
+                elif f.mime_type in ["application/pdf", "image/png", "image/jpeg", "image/webp"]:
+                    # Prefer PDF/Image over text
+                    if not main_document_file or main_document_file.mime_type in ["text/plain", "text/html"]:
                         main_document_file = f
             
             if not main_document_file:
@@ -100,19 +104,18 @@ class ExtractionPipeline:
                 session.commit()
                 return
 
-            # Prepare images for extraction
-            # Each entry: (image_bytes, mime_type, width, height, source_file_id)
-            images_to_process = []
+            # Prepare items for extraction
+            # Each entry: (content_bytes, mime_type, width, height, source_file_id, page_num)
+            items_to_process = []
 
             if main_document_file.mime_type == "application/pdf":
                 # Convert PDF to images
-                # Note: This might be memory intensive for large PDFs
                 try:
                     pdf_pages = convert_from_bytes(main_document_file.content)
                     for i, page in enumerate(pdf_pages):
                         img_byte_arr = io.BytesIO()
                         page.save(img_byte_arr, format='PNG')
-                        images_to_process.append({
+                        items_to_process.append({
                             "content": img_byte_arr.getvalue(),
                             "mime_type": "image/png",
                             "width": page.width,
@@ -123,11 +126,11 @@ class ExtractionPipeline:
                 except Exception as e:
                     logger.error(f"Failed to convert PDF to images: {e}")
                     raise
-            else:
+            elif main_document_file.mime_type in ["image/png", "image/jpeg", "image/webp"]:
                 # Handle image
                 try:
                     img = Image.open(io.BytesIO(main_document_file.content))
-                    images_to_process.append({
+                    items_to_process.append({
                         "content": main_document_file.content,
                         "mime_type": main_document_file.mime_type,
                         "width": img.width,
@@ -142,20 +145,28 @@ class ExtractionPipeline:
                 except Exception as e:
                     logger.error(f"Failed to load image: {e}")
                     raise
+            else:
+                # Handle text-only or other types supported by Gemini
+                content = main_document_file.extracted_text.encode() if main_document_file.extracted_text else main_document_file.content
+                items_to_process.append({
+                    "content": content,
+                    "mime_type": main_document_file.mime_type,
+                    "width": 0,
+                    "height": 0,
+                    "file_id": main_document_file.id,
+                    "page_num": 1
+                })
 
             # 3. Classification
-            # Use the first page/image for classification
-            first_image = images_to_process[0]
+            # Use the first item for classification
+            first_item = items_to_process[0]
             doc_type = self.classification_service.classify(
-                content=first_image["content"],
-                mime_type=first_image["mime_type"]
+                content=first_item["content"],
+                mime_type=first_item["mime_type"]
             )
             
             if doc_type == "UNKNOWN":
                 logger.warning(f"Document type UNKNOWN for package {package_id}")
-                # We still try to extract if we can find a default schema? 
-                # For now, mark as FAILED or handle as UNKNOWN.
-                # Actually, if we don't have a schema, we can't extract.
                 package.status = "FAILED"
                 session.commit()
                 return
@@ -171,23 +182,24 @@ class ExtractionPipeline:
                 return
 
             all_results = []
-            for img_data in images_to_process:
+            for item_data in items_to_process:
                 result = self.extraction_service.extract(
-                    content=img_data["content"],
-                    mime_type=img_data["mime_type"],
+                    content=item_data["content"],
+                    mime_type=item_data["mime_type"],
                     doc_type=doc_type,
                     extraction_schema=schema
                 )
                 
-                # 5. Post-processing: Scale BBoxes
-                # ExtractionResult.fields is dict[str, Triplet]
-                # We convert to dict and scale
+                # 5. Post-processing: Scale BBoxes (only if it was an image)
                 result_dict = {name: triplet.dict() for name, triplet in result.fields.items()}
-                scaled_result_dict = self._scale_triplet_bboxes(
-                    result_dict, 
-                    img_data["width"], 
-                    img_data["height"]
-                )
+                if item_data["width"] > 0 and item_data["height"] > 0:
+                    scaled_result_dict = self._scale_triplet_bboxes(
+                        result_dict, 
+                        item_data["width"], 
+                        item_data["height"]
+                    )
+                else:
+                    scaled_result_dict = result_dict
                 
                 # Calculate aggregate confidence
                 confidences = [t["confidence"] for t in scaled_result_dict.values() if isinstance(t, dict) and "confidence" in t]
@@ -196,7 +208,7 @@ class ExtractionPipeline:
                 # 6. Persistence
                 extraction_record = Extractions(
                     package_id=package_id,
-                    file_id=img_data["file_id"],
+                    file_id=item_data["file_id"],
                     document_type=doc_type,
                     extraction_json=json.dumps(scaled_result_dict),
                     confidence_score=avg_confidence

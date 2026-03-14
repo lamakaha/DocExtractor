@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -23,7 +24,10 @@ class GeminiClientFactory:
             if not api_key:
                 raise ValueError("GEMINI_API_KEY environment variable is not set")
             
-            cls._instance = genai.Client(api_key=api_key)
+            cls._instance = genai.Client(
+                api_key=api_key,
+                http_options=types.HttpOptions(api_version='v1')
+            )
             
         return cls._instance
 
