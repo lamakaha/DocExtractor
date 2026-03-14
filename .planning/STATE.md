@@ -2,17 +2,17 @@
 
 ## Project Reference
 - **Core Value**: High-integrity intake for bank documents bridging unstructured archives (EML/ZIP) to structured accounting data.
-- **Current Focus**: Phase 1: Ingestion Engine (Recursive unpacking)
-- **Active Phase**: 1
+- **Current Focus**: Phase 2: Core Extraction (Gemini integration)
+- **Active Phase**: 2
 
 ## Current Position
-- **Phase**: 1 - Ingestion Engine
-- **Plan**: N/A (Planning phase 1 next)
-- **Status**: Initialization
-- **Progress**: [----------] 0%
+- **Phase**: 2 - Core Extraction
+- **Plan**: N/A
+- **Status**: Researching/Planning
+- **Progress**: [||--------] 25%
 
 ## Performance Metrics
-- **Completion**: 0/4 Phases
+- **Completion**: 1/4 Phases
 - **Uptime**: N/A
 - **Errors**: 0
 
@@ -21,14 +21,16 @@
 - **Stack**: Python, Gemini 1.5 Pro, Streamlit, DuckDB/SQLite.
 - **Architecture**: In-memory recursive unpacking for performance.
 - **Coordinate System**: Normalized 0-1000 scale from Gemini to image pixels.
+- **Git Automation**: Automatically commit and push to `origin` after each successful phase.
 
 ### Todos
-- [ ] Initialize repository structure.
-- [ ] Run `/gsd:plan-phase 1`.
+- [x] Initialize repository structure.
+- [x] Phase 1: Ingestion Engine (Recursive unpacking)
+- [ ] Run `/gsd:plan-phase 2`.
 
 ### Blockers
 - None.
 
 ## Session Continuity
-- **Last Action**: Roadmapped project into 4 phases.
-- **Next Step**: User approves roadmap or requests changes. If approved, proceed to plan Phase 1.
+- **Last Action**: Completed Phase 1 (Ingestion Engine). Verified with `scripts/verify_ingestion.py`.
+- **Next Step**: Proceed to plan Phase 2.

@@ -1,12 +1,12 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: Phase 1: Ingestion Engine
-- **Progress**: 0%
-- **Last Updated**: 2025-03-24
+- **Current Phase**: Phase 2: Core Extraction
+- **Progress**: 25%
+- **Last Updated**: 2026-03-13
 
 ## Phases
-- [ ] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
+- [x] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
 - [ ] **Phase 2: Core Extraction** - Gemini 1.5 Pro integration for classification and Triplet-based extraction with Pydantic validation.
 - [ ] **Phase 3: HITL UI** - Streamlit dashboard for side-by-side review, visual grounding, and manual correction.
 - [ ] **Phase 4: Persistence & Export** - Hybrid SQLite/DuckDB storage and multi-tab Excel reporting via xlsxwriter.
@@ -23,7 +23,10 @@
   1. User can upload a `.eml` containing a nested `.zip` and see all files extracted.
   2. System extracts and stores plain text from email bodies for LLM context.
   3. All extracted files are correctly grouped under a single "Package ID" in storage.
-**Plans**: TBD
+**Plans**: 3 plans
+- [x] 01-01-PLAN.md — Project Foundation & Data Model
+- [x] 01-02-PLAN.md — Core Ingestion Logic (TDD)
+- [x] 01-03-PLAN.md — Resilience & Verification
 
 ### Phase 2: Core Extraction
 **Goal**: Leverage Gemini 1.5 Pro to produce high-fidelity, visually grounded structured data.
@@ -62,7 +65,7 @@
 ## Progress Table
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Ingestion Engine | 0/0 | Not started | - |
+| 1. Ingestion Engine | 3/3 | Completed | 2026-03-13 |
 | 2. Core Extraction | 0/0 | Not started | - |
 | 3. HITL UI | 0/0 | Not started | - |
 | 4. Persistence & Export | 0/0 | Not started | - |
