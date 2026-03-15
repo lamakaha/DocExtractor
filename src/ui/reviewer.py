@@ -3,6 +3,7 @@ import json
 from streamlit_drawable_canvas import st_canvas
 import io
 from PIL import Image
+from pdf2image import convert_from_bytes
 from src.models.triplets import Triplet, BoundingBox
 from src.ui.db_utils import (
     get_package_by_id, 
@@ -15,6 +16,18 @@ from src.utils.logging_utils import log_package_event
 from src.services.coordinate_scaler import normalize_to_canvas
 from src.services.analytical_service import AnalyticalService
 from src.services.export_service import ExcelExporter
+
+@st.cache_data(show_spinner=False)
+def get_pdf_page(content: bytes, page_index: int) -> Image.Image:
+    """Helper to convert a specific PDF page to a PIL Image."""
+    try:
+        pages = convert_from_bytes(content)
+        if page_index < len(pages):
+            return pages[page_index]
+        return pages[0]
+    except Exception as e:
+        # Fallback to a blank image or raise
+        raise RuntimeError(f"PDF rendering failed: {str(e)}")
 
 def get_confidence_color(confidence: float) -> str:
     """Returns color based on confidence: Green (>0.95), Yellow (0.70-0.95), Red (<0.70)."""
@@ -107,7 +120,20 @@ def show_reviewer(package_id: str):
     with col_left:
         st.subheader("Document View")
         if image_file and image_file.content:
-            img = Image.open(io.BytesIO(image_file.content))
+            # Handle PDF to image conversion for display
+            if image_file.mime_type == "application/pdf":
+                try:
+                    img = get_pdf_page(image_file.content, st.session_state.extraction_index)
+                except Exception as e:
+                    st.error(f"Failed to render PDF: {e}")
+                    return
+            else:
+                try:
+                    img = Image.open(io.BytesIO(image_file.content))
+                except Exception as e:
+                    st.error(f"Failed to open image: {e}")
+                    return
+            
             img_width, img_height = img.size
             
             # Dynamic canvas width calculation
