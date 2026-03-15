@@ -49,12 +49,11 @@ def test_handler_processes_file(handler_setup):
 
 def test_handler_ignores_unsupported_extension(handler_setup):
     handler, ingest_dir, processed_dir, failed_dir = handler_setup
-    
-    test_file = ingest_dir / "test.txt"
+
+    test_file = ingest_dir / "test.exe"
     test_file.write_text("not supported")
-    
-    handler._process_new_file(str(test_file))
-    
+
+    handler._process_new_file(str(test_file))    
     handler.ingestor.process_package.assert_not_called()
     assert test_file.exists()
 

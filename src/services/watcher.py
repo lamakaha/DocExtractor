@@ -110,6 +110,9 @@ class FileWatcher:
 
     def start(self, blocking: bool = True):
         logger.info(f"Starting file watcher on: {self.watch_dir} (recursive=True)")
+        
+        self._process_existing_files()
+        
         self.observer.schedule(self.handler, self.watch_dir, recursive=True)
         self.observer.start()
         if blocking:
@@ -118,6 +121,28 @@ class FileWatcher:
                     time.sleep(1)
             except KeyboardInterrupt:
                 self.stop()
+
+    def _process_existing_files(self):
+        logger.info(f"Scanning for existing files in {self.watch_dir}...")
+        processed_path = Path(self.processed_dir).resolve()
+        failed_path = Path(self.failed_dir).resolve()
+        
+        for root, dirs, files in os.walk(self.watch_dir):
+            root_path = Path(root).resolve()
+            
+            # Prevent walking into processed or failed directories
+            if root_path == processed_path or root_path == failed_path:
+                continue
+                
+            # Modify dirs in-place to avoid descending into them
+            if 'processed' in dirs:
+                dirs.remove('processed')
+            if 'failed' in dirs:
+                dirs.remove('failed')
+                
+            for file in files:
+                file_path = os.path.join(root, file)
+                self.handler._process_new_file(file_path)
 
     @property
     def is_running(self) -> bool:
