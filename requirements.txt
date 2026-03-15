@@ -13,3 +13,5 @@ duckdb
 xlsxwriter
 watchdog
 openai
+pytest-playwright
+playwright
