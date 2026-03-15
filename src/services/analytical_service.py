@@ -2,8 +2,15 @@ import duckdb
 import os
 
 class AnalyticalService:
-    def __init__(self, db_path="packages.db"):
-        self.db_path = os.path.abspath(db_path)
+    def __init__(self, db_path=None):
+        if db_path is None:
+            db_url = os.environ.get("DATABASE_URL", "sqlite:///packages.db")
+            if db_url.startswith("sqlite:///"):
+                self.db_path = os.path.abspath(db_url.replace("sqlite:///", ""))
+            else:
+                self.db_path = os.path.abspath("packages.db")
+        else:
+            self.db_path = os.path.abspath(db_path)
         self.conn = duckdb.connect(':memory:')
         self.conn.execute("INSTALL sqlite; LOAD sqlite;")
         self.conn.execute(f"ATTACH '{self.db_path}' AS sqlite_db (TYPE SQLITE);")
