@@ -10,6 +10,7 @@
 - [x] **Phase 2: Core Extraction** - Gemini 1.5 Pro integration for classification and Triplet-based extraction with Pydantic validation.
 - [x] **Phase 3: HITL UI** - Streamlit dashboard for side-by-side review, visual grounding, and manual correction.
 - [x] **Phase 4: Persistence & Export** - Hybrid SQLite/DuckDB storage and multi-tab Excel reporting via xlsxwriter.
+- [x] **Phase 5: UI-Validation** - Automated E2E testing using Playwright to interact with Streamlit UI (http://localhost:8501) and verify "Reviewer" and "Export" features.
 
 ---
 
@@ -70,6 +71,19 @@
 - [x] 04-02-PLAN.md — Excel Export Service
 - [x] 04-03-PLAN.md — UI Integration & Resilience
 
+### Phase 5: UI-Validation
+**Goal**: Automated End-to-End Testing of the Streamlit UI to catch JS errors and regressions.
+**Depends on**: Phase 4
+**Requirements**: REQ-UI-01, REQ-UI-02
+**Success Criteria**:
+  1. Playwright tests navigate to `http://localhost:8501`.
+  2. Tests interact with the "Reviewer" and "Export" features automatically.
+  3. Validates no JavaScript errors or Streamlit exception dialogs appear during operation.
+**Plans**: 3 plans
+- [x] 05-01-PLAN.md — Setup E2E Testing Infrastructure (Playwright)
+- [x] 05-02-PLAN.md — Validate Dashboard & Export Features
+- [x] 05-03-PLAN.md — Validate Reviewer Interface
+
 ---
 
 ## Progress Table
@@ -79,3 +93,4 @@
 | 2. Core Extraction | 3/3 | Completed | 2026-03-13 |
 | 3. HITL UI | 3/3 | Completed | 2026-03-14 |
 | 4. Persistence & Export | 3/3 | Completed | 2026-03-14 |
+| 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
