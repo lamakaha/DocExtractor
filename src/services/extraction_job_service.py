@@ -37,7 +37,12 @@ class ExtractionJobService:
                 job.claimed_at = None
                 job.lease_expires_at = None
                 session.commit()
-                log_package_event(package_id, "QUEUE", f"Requeued extraction job {job.id}")
+                log_package_event(
+                    package_id,
+                    "QUEUE",
+                    f"Requeued extraction job {job.id}",
+                    details={"job_id": job.id, "status": job.status, "attempts": job.attempts, "max_attempts": job.max_attempts},
+                )
                 return job
             return job
 
@@ -50,7 +55,12 @@ class ExtractionJobService:
         session.add(job)
         session.commit()
         session.refresh(job)
-        log_package_event(package_id, "QUEUE", f"Queued extraction job {job.id}")
+        log_package_event(
+            package_id,
+            "QUEUE",
+            f"Queued extraction job {job.id}",
+            details={"job_id": job.id, "status": job.status, "attempts": job.attempts, "max_attempts": job.max_attempts},
+        )
         return job
 
     def claim_next_job(self, session: Session, worker_id: str) -> Optional[ExtractionJob]:
@@ -90,6 +100,13 @@ class ExtractionJobService:
             pending_job.package_id,
             "QUEUE",
             f"Claimed extraction job {pending_job.id} (attempt {pending_job.attempts}/{pending_job.max_attempts})",
+            details={
+                "job_id": pending_job.id,
+                "status": pending_job.status,
+                "attempts": pending_job.attempts,
+                "max_attempts": pending_job.max_attempts,
+                "claimed_by": pending_job.claimed_by,
+            },
         )
         return pending_job
 
@@ -103,7 +120,13 @@ class ExtractionJobService:
         job.lease_expires_at = None
         job.last_error = None
         session.commit()
-        log_package_event(job.package_id, "QUEUE", f"Completed extraction job {job.id}", level="SUCCESS")
+        log_package_event(
+            job.package_id,
+            "QUEUE",
+            f"Completed extraction job {job.id}",
+            level="SUCCESS",
+            details={"job_id": job.id, "status": job.status, "attempts": job.attempts, "max_attempts": job.max_attempts},
+        )
 
     def fail_job(self, session: Session, job_id: int, error: str):
         job = session.query(ExtractionJob).filter(ExtractionJob.id == job_id).first()
@@ -122,6 +145,13 @@ class ExtractionJobService:
                 "QUEUE",
                 f"Extraction job {job.id} failed and was requeued: {error}",
                 level="WARNING",
+                details={
+                    "job_id": job.id,
+                    "status": job.status,
+                    "attempts": job.attempts,
+                    "max_attempts": job.max_attempts,
+                    "last_error": job.last_error,
+                },
             )
             return
 
@@ -132,4 +162,11 @@ class ExtractionJobService:
             "QUEUE",
             f"Extraction job {job.id} exhausted retries: {error}",
             level="ERROR",
+            details={
+                "job_id": job.id,
+                "status": job.status,
+                "attempts": job.attempts,
+                "max_attempts": job.max_attempts,
+                "last_error": job.last_error,
+            },
         )

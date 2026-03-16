@@ -2,7 +2,7 @@ import pytest
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.models.schema import Base, Package, Extractions
+from src.models.schema import Base, Package, Extractions, ExtractionJob, PackageLog
 from src.ui import db_utils
 from src.db.session import db_session
 
@@ -130,5 +130,45 @@ def test_archive_multiple_packages(setup_test_db):
         dbu.archive_multiple_packages(['5', '6'], True)
         assert dbu.get_package_by_id('5').is_archived == True
         assert dbu.get_package_by_id('6').is_archived == True
+    finally:
+        dbu.db_session = old_session
+
+def test_parse_log_details_and_latest_job(setup_test_db):
+    session = setup_test_db
+    import src.ui.db_utils as dbu
+    old_session = dbu.db_session
+    dbu.db_session = session
+    try:
+        pkg = Package(id="7", original_filename="diag.zip", status="FAILED")
+        session.add(pkg)
+        session.add(
+            PackageLog(
+                package_id="7",
+                stage="EXTRACTION",
+                message="failed",
+                level="ERROR",
+                details='{"model_id":"m1","latency_ms":12.5}',
+            )
+        )
+        session.add(
+            ExtractionJob(
+                package_id="7",
+                job_type="EXTRACT_PACKAGE",
+                status="FAILED",
+                attempts=2,
+                max_attempts=3,
+                last_error="boom",
+            )
+        )
+        session.commit()
+
+        parsed = dbu.parse_log_details('{"model_id":"m1","latency_ms":12.5}')
+        assert parsed["model_id"] == "m1"
+        assert dbu.parse_log_details("plain text") == "plain text"
+
+        latest_job = dbu.get_latest_extraction_job("7")
+        assert latest_job is not None
+        assert latest_job.status == "FAILED"
+        assert latest_job.last_error == "boom"
     finally:
         dbu.db_session = old_session

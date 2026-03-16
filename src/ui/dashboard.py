@@ -4,12 +4,69 @@ import pandas as pd
 from src.ui.db_utils import (
     get_all_packages, 
     get_package_logs, 
+    get_latest_extraction_job,
+    parse_log_details,
     archive_multiple_packages, 
     archive_package
 )
 from src.services.analytical_service import AnalyticalService
 from src.services.export_service import ExcelExporter
 from src.ui.watcher_manager import start_watcher, stop_watcher, is_watcher_running
+
+def format_log_metadata(details):
+    if not isinstance(details, dict):
+        return str(details) if details else ""
+    parts = []
+    if details.get("model_id"):
+        parts.append(f"model={details['model_id']}")
+    if details.get("prompt_version"):
+        parts.append(f"prompt={details['prompt_version']}")
+    if details.get("latency_ms") is not None:
+        parts.append(f"latency={details['latency_ms']}ms")
+    usage = details.get("usage")
+    if isinstance(usage, dict) and usage.get("total_tokens") is not None:
+        parts.append(f"tokens={usage['total_tokens']}")
+    if details.get("content_items") is not None:
+        parts.append(f"items={details['content_items']}")
+    if details.get("page_number") is not None:
+        parts.append(f"page={details['page_number']}")
+    return " | ".join(parts)
+
+def format_failure_diagnostic(details, job):
+    parts = []
+    if isinstance(details, dict) and details.get("error"):
+        parts.append(f"error={details['error']}")
+    if isinstance(details, dict) and details.get("last_error"):
+        parts.append(f"last_error={details['last_error']}")
+    if job is not None:
+        parts.append(f"job={job.status} {job.attempts}/{job.max_attempts}")
+        if job.last_error:
+            parts.append(f"job_error={job.last_error}")
+    return " | ".join(parts)
+
+def build_log_rows(logs, latest_job=None):
+    rows = []
+    for log in logs:
+        level_icon = "ℹ️"
+        if log.level == "ERROR":
+            level_icon = "❌"
+        elif log.level == "WARNING":
+            level_icon = "⚠️"
+        elif log.level == "SUCCESS":
+            level_icon = "✅"
+
+        details = parse_log_details(log.details)
+        rows.append(
+            {
+                "Time": log.timestamp.strftime("%H:%M:%S"),
+                "Stage": log.stage,
+                "Status": f"{level_icon} {log.level}",
+                "Message": log.message,
+                "Metadata": format_log_metadata(details),
+                "Diagnostics": format_failure_diagnostic(details, latest_job if log.level in {"ERROR", "WARNING"} else None),
+            }
+        )
+    return rows
 
 def render_dashboard():
     st.header("Package Dashboard")
@@ -181,19 +238,8 @@ def render_dashboard():
                 logs = get_package_logs(pkg.id)
                 if logs:
                     with st.expander(f"Processing Logs for {pkg.original_filename}", expanded=True):
-                        log_data = []
-                        for log in logs:
-                            level_icon = "ℹ️"
-                            if log.level == "ERROR": level_icon = "❌"
-                            elif log.level == "WARNING": level_icon = "⚠️"
-                            elif log.level == "SUCCESS": level_icon = "✅"
-                            
-                            log_data.append({
-                                "Time": log.timestamp.strftime("%H:%M:%S"),
-                                "Stage": log.stage,
-                                "Status": f"{level_icon} {log.level}",
-                                "Message": log.message
-                            })
+                        latest_job = get_latest_extraction_job(pkg.id)
+                        log_data = build_log_rows(logs, latest_job=latest_job)
                         st.table(log_data)
                 else:
                     st.info("No logs available for this package.")

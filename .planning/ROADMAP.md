@@ -109,8 +109,9 @@
   1. Classification can use bounded package context instead of only the first page.
   2. Pipeline logs or metadata capture model/version/prompt/schema/latency details in a structured form.
   3. Retry and failure causes are easier to diagnose than the current free-text-only flow.
-**Plans**: 1 completed plan
+**Plans**: 2 completed plans
 - [x] 07-01-PLAN.md — Observability and Package Context
+- [x] 07-02-PLAN.md — Observability Reporting and Failure Diagnostics
 
 ---
 
@@ -123,4 +124,4 @@
 | 4. Persistence & Export | 3/3 | Completed | 2026-03-14 |
 | 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
 | 6. Pipeline Refresh | 4/4 | Completed | 2026-03-16 |
-| 7. Observability & Context | 1/1 | In Progress | N/A |
+| 7. Observability & Context | 2/2 | In Progress | N/A |

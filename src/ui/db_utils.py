@@ -1,6 +1,7 @@
-from typing import List, Optional
+import json
+from typing import Any, List, Optional
 from src.db.session import db_session
-from src.models.schema import Package, Extractions, ExtractedFile, PackageLog
+from src.models.schema import Package, Extractions, ExtractedFile, PackageLog, ExtractionJob
 
 def get_all_packages(status_filter: Optional[List[str]] = None, include_archived: bool = False) -> List[Package]:
     """Fetch all packages, optionally filtered by status and archive state."""
@@ -29,6 +30,24 @@ def get_files_for_package(package_id: str) -> List[ExtractedFile]:
 def get_package_logs(package_id: str) -> List[PackageLog]:
     """Fetch all logs for a specific package."""
     return db_session.query(PackageLog).filter(PackageLog.package_id == package_id).order_by(PackageLog.timestamp.asc()).all()
+
+def parse_log_details(details: Optional[str]) -> Optional[Any]:
+    """Parse structured log details JSON when available; otherwise return the raw string."""
+    if not details:
+        return None
+    try:
+        return json.loads(details)
+    except (TypeError, json.JSONDecodeError):
+        return details
+
+def get_latest_extraction_job(package_id: str) -> Optional[ExtractionJob]:
+    """Fetch the most recent extraction job for a package if one exists."""
+    return (
+        db_session.query(ExtractionJob)
+        .filter(ExtractionJob.package_id == package_id)
+        .order_by(ExtractionJob.created_at.desc(), ExtractionJob.id.desc())
+        .first()
+    )
 
 def update_extraction(extraction_id: int, updated_json: str, is_reviewed: bool = True):
     """Update extraction JSON and mark as reviewed."""
