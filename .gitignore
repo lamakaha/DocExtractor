@@ -19,6 +19,10 @@ ENV/
 # IDEs
 .vscode/
 .idea/
+.codex-skills/
+.gemini/
+.tmp-tests/
+.pytest-lite*/
 
 # DocExtractor Specific
 ingest/processed/
