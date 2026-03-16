@@ -2,6 +2,7 @@ import duckdb
 import glob
 import json
 import os
+import pandas as pd
 
 class AnalyticalService:
     def __init__(self, db_path=None, configs_path: str = "configs"):
@@ -19,6 +20,77 @@ class AnalyticalService:
         self.conn.execute("INSTALL sqlite; LOAD sqlite;")
         self.conn.execute(f"ATTACH '{self.db_path}' AS sqlite_db (TYPE SQLITE);")
         self._create_views()
+
+    def _table_exists(self, table_name: str) -> bool:
+        result = self.conn.execute(
+            f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '{table_name}'"
+        ).fetchone()
+        return bool(result and result[0])
+
+    def _load_package_logs(self):
+        if not self._table_exists("package_logs"):
+            return pd.DataFrame(columns=["package_id", "timestamp", "stage", "level", "message", "details"])
+        return self.conn.execute(
+            """
+            SELECT package_id, timestamp, stage, level, message, details
+            FROM sqlite_db.package_logs
+            ORDER BY timestamp DESC, id DESC
+            """
+        ).fetchdf()
+
+    def _load_latest_jobs(self):
+        if not self._table_exists("extraction_jobs"):
+            return pd.DataFrame(
+                columns=["package_id", "status", "attempts", "max_attempts", "last_error", "updated_at", "created_at"]
+            )
+        return self.conn.execute(
+            """
+            WITH ranked_jobs AS (
+                SELECT
+                    package_id,
+                    status,
+                    attempts,
+                    max_attempts,
+                    last_error,
+                    updated_at,
+                    created_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY package_id
+                        ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+                    ) AS row_num
+                FROM sqlite_db.extraction_jobs
+            )
+            SELECT package_id, status, attempts, max_attempts, last_error, updated_at, created_at
+            FROM ranked_jobs
+            WHERE row_num = 1
+            """
+        ).fetchdf()
+
+    def _parse_details(self, details):
+        if not details:
+            return {}
+        try:
+            parsed = json.loads(details)
+            return parsed if isinstance(parsed, dict) else {}
+        except (TypeError, json.JSONDecodeError):
+            return {}
+
+    def _extract_latency_ms(self, details):
+        latency = self._parse_details(details).get("latency_ms")
+        try:
+            return float(latency)
+        except (TypeError, ValueError):
+            return None
+
+    def _extract_total_tokens(self, details):
+        usage = self._parse_details(details).get("usage")
+        if not isinstance(usage, dict):
+            return None
+        tokens = usage.get("total_tokens")
+        try:
+            return float(tokens)
+        except (TypeError, ValueError):
+            return None
 
     def _load_analytics_configs(self):
         configs = []
@@ -140,3 +212,72 @@ class AnalyticalService:
 
     def get_transactions(self):
         return self.conn.execute("SELECT * FROM view_transactions").fetchdf()
+
+    def get_observability_summary(self):
+        logs = self._load_package_logs()
+        latest_jobs = self._load_latest_jobs()
+
+        latency_values = logs["details"].apply(self._extract_latency_ms) if not logs.empty else pd.Series(dtype=float)
+        token_values = logs["details"].apply(self._extract_total_tokens) if not logs.empty else pd.Series(dtype=float)
+
+        retrying_jobs = latest_jobs[
+            (latest_jobs["attempts"] > 0)
+            & (latest_jobs["attempts"] < latest_jobs["max_attempts"])
+            & (~latest_jobs["status"].isin(["COMPLETED", "FAILED"]))
+        ] if not latest_jobs.empty else latest_jobs
+
+        summary = pd.DataFrame(
+            [
+                {
+                    "total_logs": int(len(logs)),
+                    "error_logs": int((logs["level"] == "ERROR").sum()) if not logs.empty else 0,
+                    "warning_logs": int((logs["level"] == "WARNING").sum()) if not logs.empty else 0,
+                    "failed_jobs": int((latest_jobs["status"] == "FAILED").sum()) if not latest_jobs.empty else 0,
+                    "retrying_jobs": int(len(retrying_jobs)) if not latest_jobs.empty else 0,
+                    "avg_latency_ms": float(latency_values.dropna().mean()) if not latency_values.dropna().empty else None,
+                    "avg_total_tokens": float(token_values.dropna().mean()) if not token_values.dropna().empty else None,
+                    "classification_runs": int((logs["stage"] == "CLASSIFICATION").sum()) if not logs.empty else 0,
+                    "extraction_runs": int((logs["stage"] == "EXTRACTION").sum()) if not logs.empty else 0,
+                }
+            ]
+        )
+        return summary
+
+    def get_recent_failures(self, limit: int = 10):
+        logs = self._load_package_logs()
+        latest_jobs = self._load_latest_jobs()
+
+        if logs.empty:
+            return pd.DataFrame(
+                columns=["timestamp", "package_id", "stage", "level", "message", "job_status", "attempts", "max_attempts", "last_error"]
+            )
+
+        failures = logs[logs["level"].isin(["ERROR", "WARNING"])].copy()
+        if failures.empty:
+            return pd.DataFrame(
+                columns=["timestamp", "package_id", "stage", "level", "message", "job_status", "attempts", "max_attempts", "last_error"]
+            )
+
+        if not latest_jobs.empty:
+            failures = failures.merge(latest_jobs, on="package_id", how="left")
+        else:
+            failures["status"] = None
+            failures["attempts"] = None
+            failures["max_attempts"] = None
+            failures["last_error"] = None
+
+        failures["parsed_details"] = failures["details"].apply(self._parse_details)
+        failures["last_error"] = failures.apply(
+            lambda row: row["parsed_details"].get("last_error")
+            or row["parsed_details"].get("error")
+            or row.get("last_error"),
+            axis=1,
+        )
+
+        return (
+            failures.rename(columns={"status": "job_status"})[
+                ["timestamp", "package_id", "stage", "level", "message", "job_status", "attempts", "max_attempts", "last_error"]
+            ]
+            .head(limit)
+            .reset_index(drop=True)
+        )

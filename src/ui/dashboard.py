@@ -68,6 +68,48 @@ def build_log_rows(logs, latest_job=None):
         )
     return rows
 
+def build_observability_metrics(summary_df):
+    if summary_df is None or summary_df.empty:
+        return []
+    summary = summary_df.iloc[0].to_dict()
+    return [
+        {"label": "Errors", "value": int(summary.get("error_logs") or 0)},
+        {"label": "Retries", "value": int(summary.get("retrying_jobs") or 0)},
+        {
+            "label": "Avg Latency",
+            "value": "N/A" if summary.get("avg_latency_ms") is None else f"{summary['avg_latency_ms']:.1f}ms",
+        },
+        {
+            "label": "Avg Tokens",
+            "value": "N/A" if summary.get("avg_total_tokens") is None else f"{summary['avg_total_tokens']:.0f}",
+        },
+    ]
+
+def build_recent_failure_rows(failures_df):
+    if failures_df is None or failures_df.empty:
+        return []
+    rows = []
+    for _, failure in failures_df.iterrows():
+        job_status = failure.get("job_status")
+        attempts = failure.get("attempts")
+        max_attempts = failure.get("max_attempts")
+        retry_text = ""
+        if pd.notna(attempts) and pd.notna(max_attempts):
+            retry_text = f"{int(attempts)}/{int(max_attempts)}"
+        rows.append(
+            {
+                "Time": failure["timestamp"].strftime("%Y-%m-%d %H:%M") if hasattr(failure["timestamp"], "strftime") else str(failure["timestamp"]),
+                "Package": str(failure["package_id"])[:8],
+                "Stage": failure["stage"],
+                "Level": failure["level"],
+                "Message": failure["message"],
+                "Job": job_status or "",
+                "Attempts": retry_text,
+                "Error": failure.get("last_error") or "",
+            }
+        )
+    return rows
+
 def render_dashboard():
     st.header("Package Dashboard")
     
@@ -169,6 +211,27 @@ def render_dashboard():
     
     # Fetch Data
     packages = get_all_packages(status_filter=selected_statuses, include_archived=show_archived)
+
+    try:
+        analytical = AnalyticalService()
+        observability_summary = analytical.get_observability_summary()
+        recent_failures = analytical.get_recent_failures()
+    except Exception as exc:
+        observability_summary = pd.DataFrame()
+        recent_failures = pd.DataFrame()
+        st.warning(f"Observability reporting unavailable: {exc}")
+
+    metrics = build_observability_metrics(observability_summary)
+    if metrics:
+        st.subheader("Observability Overview")
+        metric_columns = st.columns(len(metrics))
+        for column, metric in zip(metric_columns, metrics):
+            column.metric(metric["label"], metric["value"])
+
+    failure_rows = build_recent_failure_rows(recent_failures)
+    if failure_rows:
+        st.subheader("Recent Failures")
+        st.table(failure_rows)
     
     if not packages:
         st.info("No packages found.")
