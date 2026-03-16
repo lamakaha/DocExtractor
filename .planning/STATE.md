@@ -2,17 +2,17 @@
 
 ## Project Reference
 - **Core Value**: High-integrity intake for bank documents bridging unstructured archives (EML/ZIP) to structured accounting data.
-- **Current Focus**: Phase 6 completed; pipeline refresh landed around the canonical PDF review contract.
-- **Active Phase**: 6 (Completed)
+- **Current Focus**: Phase 7 planning for observability and package-context-aware classification.
+- **Active Phase**: 7 (In Progress)
 
 ## Current Position
-- **Phase**: 6 - Pipeline Refresh
-- **Plan**: 06-04 Config-Driven Analytical Shredding (Completed)
-- **Status**: Completed
-- **Progress**: [||||||||||] 100%
+- **Phase**: 7 - Observability & Context
+- **Plan**: 07-01 Observability and Package Context (Completed)
+- **Status**: In Progress
+- **Progress**: [|||-------] 30%
 
 ## Performance Metrics
-- **Completion**: 5/5 Phases
+- **Completion**: 6/7 Phases
 - **Uptime**: N/A
 - **Errors**: 0
 
@@ -40,10 +40,12 @@
 - [x] Runtime durability (queueing, idempotent enqueue, bounded retries)
 - [x] Multi-page reconciliation
 - [x] Config-driven analytical shredding
+- [x] Observability metadata capture
+- [x] Package-context-aware classification
 
 ### Blockers
 - None.
 
 ## Session Continuity
-- **Last Action**: Implemented 06-04 by moving analytical shredding to config-driven mappings and validating multi-document analytical behavior.
-- **Next Step**: Phase 6 is complete. Review residual risks and decide whether to open a new phase for observability and package-context classification improvements.
+- **Last Action**: Implemented 07-01 by adding bounded package-context classification and structured runtime metadata in pipeline logs.
+- **Next Step**: Define the next Phase 7 slice for surfacing observability data or strengthening package-level context selection.

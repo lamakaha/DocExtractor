@@ -1,6 +1,7 @@
 import os
 import json
 import base64
+import time
 from typing import Dict, Any, List, Optional
 from src.services.gemini_client import get_gemini_client
 from src.models.triplets import Triplet, ExtractionResult, BoundingBox
@@ -14,6 +15,8 @@ class ExtractionService:
     def __init__(self):
         self._client = None
         self.model_id = os.getenv("GEMINI_MODEL", "google/gemini-2.0-flash-001")
+        self.prompt_version = "extraction.v1.structured-json"
+        self.last_run_details: Dict[str, Any] = {}
 
     @property
     def client(self):
@@ -128,6 +131,7 @@ If a field is not found, use null for value and 0.0 for confidence.
 """
 
         try:
+            start = time.perf_counter()
             # Prepare content for OpenRouter (OpenAI-compatible)
             base64_content = base64.b64encode(content).decode("utf-8")
 
@@ -162,6 +166,19 @@ If a field is not found, use null for value and 0.0 for confidence.
 
             raw_data = response.choices[0].message.content
             extracted_fields_json = json.loads(raw_data)
+            usage = getattr(response, "usage", None)
+            self.last_run_details = {
+                "model_id": self.model_id,
+                "prompt_version": self.prompt_version,
+                "document_type": doc_type,
+                "schema_field_count": len(extraction_schema),
+                "latency_ms": round((time.perf_counter() - start) * 1000, 2),
+                "usage": {
+                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                    "completion_tokens": getattr(usage, "completion_tokens", None),
+                    "total_tokens": getattr(usage, "total_tokens", None),
+                } if usage else None,
+            }
             
             # Convert JSON to Triplet objects and validate
             processed_fields = {}
@@ -175,5 +192,12 @@ If a field is not found, use null for value and 0.0 for confidence.
             )
 
         except Exception as e:
+            self.last_run_details = {
+                "model_id": self.model_id,
+                "prompt_version": self.prompt_version,
+                "document_type": doc_type,
+                "schema_field_count": len(extraction_schema),
+                "error": str(e),
+            }
             print(f"Extraction failed: {e}")
             raise

@@ -1,8 +1,8 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: Completed
-- **Progress**: 100%
+- **Current Phase**: 7 - Observability & Context
+- **Progress**: 6 phases complete; phase 7 implementation in progress
 - **Last Updated**: 2026-03-16
 
 ## Phases
@@ -11,7 +11,8 @@
 - [x] **Phase 3: HITL UI** - Streamlit dashboard for side-by-side review, visual grounding, and manual correction.
 - [x] **Phase 4: Persistence & Export** - Hybrid SQLite/DuckDB storage and multi-tab Excel reporting via xlsxwriter.
 - [x] **Phase 5: UI-Validation** - Automated E2E testing using Playwright to interact with Streamlit UI (http://localhost:8501) and verify "Reviewer" and "Export" features.
-- [ ] **Phase 6: Pipeline Refresh** - Canonical PDF normalization, normalized bbox persistence, and staged durability improvements for the extraction pipeline.
+- [x] **Phase 6: Pipeline Refresh** - Canonical PDF normalization, normalized bbox persistence, and staged durability improvements for the extraction pipeline.
+- [ ] **Phase 7: Observability & Context** - Structured runtime metadata, richer package-context classification, and improved debugging/operational traceability.
 
 ---
 
@@ -100,6 +101,17 @@
 - [x] 06-03-PLAN.md — Multi-Page Reconciliation
 - [x] 06-04-PLAN.md — Config-Driven Analytical Shredding
 
+### Phase 7: Observability & Context
+**Goal**: Reduce first-page classification bias and make pipeline execution metadata queryable and operationally useful.
+**Depends on**: Phase 6
+**Requirements**: REQ-EXT-01, REQ-EXT-02, REQ-NFR-03, REQ-NFR-04
+**Success Criteria**:
+  1. Classification can use bounded package context instead of only the first page.
+  2. Pipeline logs or metadata capture model/version/prompt/schema/latency details in a structured form.
+  3. Retry and failure causes are easier to diagnose than the current free-text-only flow.
+**Plans**: 1 completed plan
+- [x] 07-01-PLAN.md — Observability and Package Context
+
 ---
 
 ## Progress Table
@@ -111,3 +123,4 @@
 | 4. Persistence & Export | 3/3 | Completed | 2026-03-14 |
 | 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
 | 6. Pipeline Refresh | 4/4 | Completed | 2026-03-16 |
+| 7. Observability & Context | 1/1 | In Progress | N/A |

@@ -27,6 +27,35 @@ class ExtractionPipeline:
         self.reconciliation_service = ReconciliationService()
         self.configs_path = configs_path
 
+    def _build_classification_context(
+        self,
+        files: List[ExtractedFile],
+        items_to_process: List[Dict[str, Any]],
+        max_pages: int = 2,
+        max_text_chars: int = 1500,
+    ) -> tuple[List[bytes], List[str], str]:
+        page_contents = [item["content"] for item in items_to_process[:max_pages]]
+        mime_types = [item["mime_type"] for item in items_to_process[:max_pages]]
+        text_parts: List[str] = []
+        remaining = max_text_chars
+        for file_record in files:
+            text = file_record.extracted_text
+            if not text and file_record.mime_type in self.canonical_document_service.TEXTUAL_MIME_TYPES:
+                text = file_record.content.decode("utf-8", errors="ignore") if file_record.content else ""
+            if not text:
+                continue
+            snippet = text.strip()
+            if not snippet:
+                continue
+            if len(snippet) > remaining:
+                snippet = snippet[:remaining]
+            if snippet:
+                text_parts.append(f"{file_record.filename}: {snippet}")
+                remaining -= len(snippet)
+            if remaining <= 0:
+                break
+        return page_contents, mime_types, "\n\n".join(text_parts)
+
     def _load_schema(self, doc_type: str) -> Optional[Dict[str, Any]]:
         """Loads extraction schema for the given document type."""
         config_files = glob.glob(os.path.join(self.configs_path, "*.json"))
@@ -154,17 +183,23 @@ class ExtractionPipeline:
 
             # 3. Classification
             log_package_event(package_id, "CLASSIFICATION", "Starting document classification", new_status="CLASSIFYING")
-            first_item = items_to_process[0]
+            classification_contents, classification_mime_types, text_context = self._build_classification_context(files, items_to_process)
             doc_type = self.classification_service.classify(
-                content=first_item["content"],
-                mime_type=first_item["mime_type"]
+                content=classification_contents,
+                mime_type=classification_mime_types,
+                text_context=text_context,
+            )
+            log_package_event(
+                package_id,
+                "CLASSIFICATION",
+                f"Classification completed as '{doc_type}'",
+                level="SUCCESS" if doc_type != "UNKNOWN" else "WARNING",
+                details=self.classification_service.last_run_details,
             )
             
             if doc_type == "UNKNOWN":
                 log_package_event(package_id, "CLASSIFICATION", "Document type UNKNOWN", level="WARNING", new_status="FAILED")
                 return False
-
-            log_package_event(package_id, "CLASSIFICATION", f"Document classified as '{doc_type}'", level="SUCCESS")
 
             # 4. Extraction
             log_package_event(package_id, "EXTRACTION", f"Starting extraction for type '{doc_type}'", new_status="EXTRACTING")
@@ -183,6 +218,15 @@ class ExtractionPipeline:
                     mime_type=item_data["mime_type"],
                     doc_type=doc_type,
                     extraction_schema=schema
+                )
+                log_package_event(
+                    package_id,
+                    "EXTRACTION",
+                    f"Extraction completed for page {item_data['page_num']}",
+                    details={
+                        **self.extraction_service.last_run_details,
+                        "page_number": item_data["page_num"],
+                    },
                 )
 
                 # 5. Keep normalized bboxes as the persisted source of truth.

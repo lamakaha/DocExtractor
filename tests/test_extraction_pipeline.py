@@ -33,7 +33,8 @@ def test_process_package_creates_canonical_pdf_and_persists_normalized_bboxes(mo
         source_file_id = source_file.id
 
         monkeypatch.setattr("src.services.extraction_pipeline.db_session", lambda: session)
-        monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: None)
+        log_calls = []
+        monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: log_calls.append((args, kwargs)))
         monkeypatch.setattr(
             "src.services.extraction_pipeline.convert_from_bytes",
             lambda content: [Image.new("RGB", (120, 200), "white")],
@@ -43,8 +44,9 @@ def test_process_package_creates_canonical_pdf_and_persists_normalized_bboxes(mo
         monkeypatch.setattr(
             pipeline.classification_service,
             "classify",
-            lambda content, mime_type: "Commercial_Loan_Paydown",
+            lambda content, mime_type, text_context="": "Commercial_Loan_Paydown",
         )
+        pipeline.classification_service.last_run_details = {"model_id": "test-model", "content_items": 1, "text_context_chars": 22}
         monkeypatch.setattr(
             pipeline.extraction_service,
             "extract",
@@ -75,6 +77,7 @@ def test_process_package_creates_canonical_pdf_and_persists_normalized_bboxes(mo
         extraction_json = json.loads(extraction.extraction_json)
         assert extraction_json["lender_name"]["bbox"]["coordinates"] == [10, 20, 30, 40]
         assert extraction_json["lender_name"]["page_number"] == 1
+        assert any(call[0][1] == "CLASSIFICATION" and call[1].get("details", {}).get("model_id") == "test-model" for call in log_calls)
     finally:
         session.close()
         engine.dispose()
@@ -103,14 +106,16 @@ def test_process_package_reconciles_multi_page_results(monkeypatch):
         package_id = package.id
 
         monkeypatch.setattr("src.services.extraction_pipeline.db_session", lambda: session)
-        monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: None)
+        log_calls = []
+        monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: log_calls.append((args, kwargs)))
         monkeypatch.setattr(
             "src.services.extraction_pipeline.convert_from_bytes",
             lambda content: [Image.new("RGB", (120, 200), "white"), Image.new("RGB", (120, 200), "white")],
         )
 
         pipeline = ExtractionPipeline()
-        monkeypatch.setattr(pipeline.classification_service, "classify", lambda content, mime_type: "Commercial_Loan_Paydown")
+        monkeypatch.setattr(pipeline.classification_service, "classify", lambda content, mime_type, text_context="": "Commercial_Loan_Paydown")
+        pipeline.classification_service.last_run_details = {"model_id": "test-model", "content_items": 2, "text_context_chars": 0}
         results = iter(
             [
                 ExtractionResult(
@@ -130,6 +135,7 @@ def test_process_package_reconciles_multi_page_results(monkeypatch):
             ]
         )
         monkeypatch.setattr(pipeline.extraction_service, "extract", lambda **kwargs: next(results))
+        pipeline.extraction_service.last_run_details = {"model_id": "test-model", "prompt_version": "extraction.v1.structured-json"}
 
         pipeline.process_package(package_id)
 
@@ -139,6 +145,7 @@ def test_process_package_reconciles_multi_page_results(monkeypatch):
         assert extraction_json["lender_name"]["page_number"] == 2
         assert extraction_json["total_amount"]["value"] == "100"
         assert extraction_json["total_amount"]["page_number"] == 1
+        assert any(call[0][1] == "EXTRACTION" and isinstance(call[1].get("details"), dict) for call in log_calls)
     finally:
         session.close()
         engine.dispose()
