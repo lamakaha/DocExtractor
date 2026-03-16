@@ -94,9 +94,10 @@
   2. Extractions reference canonical PDFs and persist normalized bbox coordinates.
   3. The reviewer remains page + bbox based with one consistent contract.
   4. Follow-on plans are defined for runtime durability, reconciliation, and analytics generalization.
-**Plans**: 2 completed plans
+**Plans**: 3 completed plans
 - [x] 06-01-PLAN.md — Canonical PDF Foundation
 - [x] 06-02-PLAN.md — Durable Extraction Job Handoff
+- [x] 06-03-PLAN.md — Multi-Page Reconciliation
 
 ---
 
@@ -108,4 +109,4 @@
 | 3. HITL UI | 3/3 | Completed | 2026-03-14 |
 | 4. Persistence & Export | 3/3 | Completed | 2026-03-14 |
 | 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
-| 6. Pipeline Refresh | 2/2 | In Progress | N/A |
+| 6. Pipeline Refresh | 3/3 | In Progress | N/A |

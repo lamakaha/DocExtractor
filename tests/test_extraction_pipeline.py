@@ -74,6 +74,71 @@ def test_process_package_creates_canonical_pdf_and_persists_normalized_bboxes(mo
 
         extraction_json = json.loads(extraction.extraction_json)
         assert extraction_json["lender_name"]["bbox"]["coordinates"] == [10, 20, 30, 40]
+        assert extraction_json["lender_name"]["page_number"] == 1
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_process_package_reconciles_multi_page_results(monkeypatch):
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    try:
+        package = Package(id="pkg2", original_filename="sample.pdf", status="INGESTED")
+        session.add(package)
+        source_file = ExtractedFile(
+            package_id=package.id,
+            filename="sample.pdf",
+            original_path="sample.pdf",
+            content=b"%PDF-1.4 fake",
+            extracted_text=None,
+            mime_type="application/pdf",
+            size=13,
+        )
+        session.add(source_file)
+        session.commit()
+        package_id = package.id
+
+        monkeypatch.setattr("src.services.extraction_pipeline.db_session", lambda: session)
+        monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: None)
+        monkeypatch.setattr(
+            "src.services.extraction_pipeline.convert_from_bytes",
+            lambda content: [Image.new("RGB", (120, 200), "white"), Image.new("RGB", (120, 200), "white")],
+        )
+
+        pipeline = ExtractionPipeline()
+        monkeypatch.setattr(pipeline.classification_service, "classify", lambda content, mime_type: "Commercial_Loan_Paydown")
+        results = iter(
+            [
+                ExtractionResult(
+                    document_type="Commercial_Loan_Paydown",
+                    fields={
+                        "lender_name": Triplet(value="", confidence=0.4, bbox=None),
+                        "total_amount": Triplet(value="100", confidence=0.5, bbox=BoundingBox(coordinates=[10, 20, 30, 40])),
+                    },
+                ),
+                ExtractionResult(
+                    document_type="Commercial_Loan_Paydown",
+                    fields={
+                        "lender_name": Triplet(value="Merged Bank", confidence=0.9, bbox=BoundingBox(coordinates=[50, 60, 70, 80])),
+                        "total_amount": Triplet(value="90", confidence=0.4, bbox=BoundingBox(coordinates=[11, 21, 31, 41])),
+                    },
+                ),
+            ]
+        )
+        monkeypatch.setattr(pipeline.extraction_service, "extract", lambda **kwargs: next(results))
+
+        pipeline.process_package(package_id)
+
+        extraction = session.query(Extractions).filter(Extractions.package_id == package_id).one()
+        extraction_json = json.loads(extraction.extraction_json)
+        assert extraction_json["lender_name"]["value"] == "Merged Bank"
+        assert extraction_json["lender_name"]["page_number"] == 2
+        assert extraction_json["total_amount"]["value"] == "100"
+        assert extraction_json["total_amount"]["page_number"] == 1
     finally:
         session.close()
         engine.dispose()

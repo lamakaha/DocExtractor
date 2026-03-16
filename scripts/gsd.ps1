@@ -26,28 +26,36 @@ function Get-StateValue {
 
 function Get-NextPlanCommand {
     if (-not (Test-Path $phaseDir)) {
-        return "/gsd-help"
+        return "gsd-help"
     }
 
-    $planFiles = Get-ChildItem -Path $phaseDir -Recurse -Filter "*-PLAN.md" | Select-Object -ExpandProperty BaseName
+    $planFiles = Get-ChildItem -Path $phaseDir -Recurse -Filter "*-PLAN.md"
     $ids = @()
-    foreach ($name in $planFiles) {
-        if ($name -match "^(\d{2})-(\d{2})-PLAN$") {
+    foreach ($file in $planFiles) {
+        if ($file.BaseName -match "^(\d{2})-(\d{2})-PLAN$") {
+            $phase = [int]$matches[1]
+            $wave = [int]$matches[2]
+            $summaryPath = Join-Path $file.DirectoryName ("{0}-{1}-SUMMARY.md" -f $matches[1], $matches[2])
             $ids += [pscustomobject]@{
-                Phase = [int]$matches[1]
-                Wave = [int]$matches[2]
+                Phase = $phase
+                Wave = $wave
+                SummaryExists = (Test-Path $summaryPath)
             }
         }
     }
 
     if (-not $ids) {
-        return "/gsd-help"
+        return "gsd-help"
     }
 
     $latest = $ids | Sort-Object Phase, Wave | Select-Object -Last 1
+    if (-not $latest.SummaryExists) {
+        return "gsd-continue"
+    }
+
     $nextWave = "{0:D2}" -f ($latest.Wave + 1)
     $phase = "{0:D2}" -f $latest.Phase
-    return "/gsd-start $phase-$nextWave next-slice"
+    return "gsd-start $phase-$nextWave next-slice"
 }
 
 $phase = Get-StateValue -Label "Phase"
@@ -60,12 +68,12 @@ $recommended = Get-NextPlanCommand
 switch ($Command) {
     "help" {
         Write-Output "GSD commands:"
-        Write-Output "/gsd-help"
-        Write-Output "/gsd-status"
-        Write-Output "/gsd-next"
-        Write-Output "/gsd-start <plan-id> <title>"
-        Write-Output "/gsd-continue"
-        Write-Output "/gsd-close <plan-id>"
+        Write-Output "gsd-help"
+        Write-Output "gsd-status"
+        Write-Output "gsd-next"
+        Write-Output "gsd-start <plan-id> <title>"
+        Write-Output "gsd-continue"
+        Write-Output "gsd-close <plan-id>"
         Write-Output ""
         Write-Output "Current phase: $phase"
         Write-Output "Current plan: $plan"

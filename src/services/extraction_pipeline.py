@@ -12,6 +12,7 @@ from src.models.schema import Package, ExtractedFile, Extractions
 from src.services.classification_service import ClassificationService
 from src.services.canonical_document_service import CanonicalDocumentService
 from src.services.extraction_service import ExtractionService
+from src.services.reconciliation_service import ReconciliationService
 from src.utils.logging_utils import log_package_event
 
 # Configure logging
@@ -23,6 +24,7 @@ class ExtractionPipeline:
         self.classification_service = ClassificationService(configs_path=configs_path)
         self.canonical_document_service = CanonicalDocumentService()
         self.extraction_service = ExtractionService()
+        self.reconciliation_service = ReconciliationService()
         self.configs_path = configs_path
 
     def _load_schema(self, doc_type: str) -> Optional[Dict[str, Any]]:
@@ -171,7 +173,7 @@ class ExtractionPipeline:
                 log_package_event(package_id, "EXTRACTION", f"No extraction schema found for type {doc_type}", level="ERROR", new_status="FAILED")
                 return False
 
-            all_results = []
+            page_results = []
             for item_data in items_to_process:
                 page_info = f" (Page {item_data['page_num']})" if item_data['page_num'] > 1 else ""
                 log_package_event(package_id, "EXTRACTION", f"Extracting data{page_info}")
@@ -184,22 +186,26 @@ class ExtractionPipeline:
                 )
 
                 # 5. Keep normalized bboxes as the persisted source of truth.
-                result_dict = {name: triplet.model_dump() for name, triplet in result.fields.items()}
+                result_dict = {}
+                for name, triplet in result.fields.items():
+                    payload = triplet.model_dump()
+                    payload["page_number"] = item_data["page_num"]
+                    result_dict[name] = payload
+                page_results.append(result_dict)
 
-                # Calculate aggregate confidence
-                confidences = [t["confidence"] for t in result_dict.values() if isinstance(t, dict) and "confidence" in t]
-                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+            # 6. Reconciliation and persistence
+            reconciled_result = self.reconciliation_service.reconcile(page_results)
+            confidences = [t["confidence"] for t in reconciled_result.values() if isinstance(t, dict) and "confidence" in t]
+            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
 
-                # 6. Persistence
-                extraction_record = Extractions(
-                    package_id=package_id,
-                    file_id=item_data["file_id"],
-                    document_type=doc_type,
-                    extraction_json=json.dumps(result_dict),
-                    confidence_score=avg_confidence
-                )
-                session.add(extraction_record)
-                all_results.append(result_dict)
+            extraction_record = Extractions(
+                package_id=package_id,
+                file_id=canonical_file.id,
+                document_type=doc_type,
+                extraction_json=json.dumps(reconciled_result),
+                confidence_score=avg_confidence
+            )
+            session.add(extraction_record)
 
             # Update package status
             session.commit()

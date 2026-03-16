@@ -53,6 +53,8 @@ def show_reviewer(package_id: str):
     # Initialize session state for navigation
     if "extraction_index" not in st.session_state:
         st.session_state.extraction_index = 0
+    if "active_page_number" not in st.session_state:
+        st.session_state.active_page_number = 1
 
     package = get_package_by_id(package_id)
     if not package:
@@ -77,6 +79,7 @@ def show_reviewer(package_id: str):
     # Clear active_bbox if we changed extraction
     if "last_extraction_id" not in st.session_state or st.session_state.last_extraction_id != extractions[st.session_state.extraction_index].id:
         st.session_state.active_bbox = None
+        st.session_state.active_page_number = 1
         st.session_state.last_extraction_id = extractions[st.session_state.extraction_index].id
 
     num_extractions = len(extractions)
@@ -94,11 +97,13 @@ def show_reviewer(package_id: str):
                 if st.button("←", disabled=st.session_state.extraction_index == 0, help="Previous Page"):
                     st.session_state.extraction_index -= 1
                     st.session_state.active_bbox = None
+                    st.session_state.active_page_number = 1
                     st.rerun()
             with next_col:
                 if st.button("→", disabled=st.session_state.extraction_index == num_extractions - 1, help="Next Page"):
                     st.session_state.extraction_index += 1
                     st.session_state.active_bbox = None
+                    st.session_state.active_page_number = 1
                     st.rerun()
             st.write(f"Page {st.session_state.extraction_index + 1} of {num_extractions}")
 
@@ -124,6 +129,8 @@ def show_reviewer(package_id: str):
             if image_file.mime_type == "application/pdf":
                 try:
                     img = get_pdf_page(image_file.content, st.session_state.extraction_index)
+                    if st.session_state.active_page_number > 1:
+                        img = get_pdf_page(image_file.content, st.session_state.active_page_number - 1)
                 except Exception as e:
                     st.error(f"Failed to render PDF: {e}")
                     return
@@ -229,6 +236,8 @@ def show_reviewer(package_id: str):
                 st.write("") # Spacer
                 if triplet.bbox and st.button("🔍", key=f"locate_{current_extraction.id}_{field_name}", help="Locate on document"):
                     st.session_state.active_bbox = triplet.bbox.coordinates
+                    if triplet.page_number:
+                        st.session_state.active_page_number = triplet.page_number
                     st.rerun()
 
         st.divider()

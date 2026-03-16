@@ -44,6 +44,7 @@ class Triplet(BaseModel):
     value: Any
     confidence: float = Field(..., ge=0.0, le=1.0)
     bbox: Optional[BoundingBox] = None
+    page_number: Optional[int] = Field(default=None, ge=1)
 
 class ExtractionResult(BaseModel):
     """
