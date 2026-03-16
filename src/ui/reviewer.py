@@ -41,9 +41,9 @@ def get_confidence_color(confidence: float) -> str:
 def serialize_triplet(obj):
     """Custom JSON serializer for Triplet and BoundingBox objects."""
     if isinstance(obj, Triplet):
-        return obj.dict()
+        return obj.model_dump()
     if isinstance(obj, BoundingBox):
-        return obj.dict()
+        return obj.model_dump()
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 def show_reviewer(package_id: str):

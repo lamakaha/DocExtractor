@@ -1,29 +1,30 @@
 import os
-import time
-import shutil
+from pathlib import Path
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from src.services.watcher import IngestionHandler
 
 @pytest.fixture
-def handler_setup(tmp_path):
-    ingest_dir = tmp_path / "ingest"
+def handler_setup():
+    base_temp_dir = Path.cwd() / ".tmp-tests"
+    os.makedirs(base_temp_dir, exist_ok=True)
+    ingest_dir = base_temp_dir / "ingest"
     processed_dir = ingest_dir / "processed"
     failed_dir = ingest_dir / "failed"
-    
-    os.makedirs(processed_dir)
-    os.makedirs(failed_dir)
-    
+
+    os.makedirs(processed_dir, exist_ok=True)
+    os.makedirs(failed_dir, exist_ok=True)
+
     # Patch the services to avoid initialization issues (like missing API keys)
     with patch('src.services.watcher.RecursiveIngestor') as mock_ingestor_cls, \
-         patch('src.services.watcher.ExtractionPipeline') as mock_pipeline_cls:
-        
+         patch('src.services.watcher.ExtractionJobService') as mock_job_service_cls:
+
         handler = IngestionHandler(str(processed_dir), str(failed_dir))
-        
+
         # Access the instances created during init
         handler.ingestor = mock_ingestor_cls.return_value
-        handler.pipeline = mock_pipeline_cls.return_value
-        
+        handler.job_service = mock_job_service_cls.return_value
+
         yield handler, ingest_dir, processed_dir, failed_dir
 
 def test_handler_processes_file(handler_setup):
@@ -33,15 +34,16 @@ def test_handler_processes_file(handler_setup):
     test_file = ingest_dir / "test.zip"
     test_file.write_bytes(b"dummy zip content")
     
-    # Configure mock
+    # Configure mocks
     handler.ingestor.process_package.return_value = "pkg_123"
+    handler.job_service.enqueue_package.return_value.id = 7
     
     # Trigger event
     handler._process_new_file(str(test_file))
     
     # Verify service calls
     handler.ingestor.process_package.assert_called_once()
-    handler.pipeline.process_package.assert_called_once_with("pkg_123")
+    handler.job_service.enqueue_package.assert_called_once()
     
     # Verify file moved to processed
     assert not test_file.exists()

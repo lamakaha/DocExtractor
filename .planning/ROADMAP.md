@@ -1,9 +1,9 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: Completed
-- **Progress**: 100%
-- **Last Updated**: 2026-03-14
+- **Current Phase**: 6 - Pipeline Refresh
+- **Progress**: 5 phases complete; refresh in progress with 2 completed implementation slices
+- **Last Updated**: 2026-03-15
 
 ## Phases
 - [x] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
@@ -11,6 +11,7 @@
 - [x] **Phase 3: HITL UI** - Streamlit dashboard for side-by-side review, visual grounding, and manual correction.
 - [x] **Phase 4: Persistence & Export** - Hybrid SQLite/DuckDB storage and multi-tab Excel reporting via xlsxwriter.
 - [x] **Phase 5: UI-Validation** - Automated E2E testing using Playwright to interact with Streamlit UI (http://localhost:8501) and verify "Reviewer" and "Export" features.
+- [ ] **Phase 6: Pipeline Refresh** - Canonical PDF normalization, normalized bbox persistence, and staged durability improvements for the extraction pipeline.
 
 ---
 
@@ -84,6 +85,19 @@
 - [x] 05-02-PLAN.md — Validate Dashboard & Export Features
 - [x] 05-03-PLAN.md — Validate Reviewer Interface
 
+### Phase 6: Pipeline Refresh
+**Goal**: Re-center the pipeline around a canonical PDF review contract while addressing the highest-value architecture gaps from the first review.
+**Depends on**: Phase 5
+**Requirements**: REQ-EXT-01, REQ-EXT-03, REQ-EXT-05, REQ-UI-02, REQ-UI-03, REQ-NFR-03
+**Success Criteria**:
+  1. Supported source files are normalized to a canonical PDF before extraction/review.
+  2. Extractions reference canonical PDFs and persist normalized bbox coordinates.
+  3. The reviewer remains page + bbox based with one consistent contract.
+  4. Follow-on plans are defined for runtime durability, reconciliation, and analytics generalization.
+**Plans**: 2 completed plans
+- [x] 06-01-PLAN.md — Canonical PDF Foundation
+- [x] 06-02-PLAN.md — Durable Extraction Job Handoff
+
 ---
 
 ## Progress Table
@@ -94,3 +108,4 @@
 | 3. HITL UI | 3/3 | Completed | 2026-03-14 |
 | 4. Persistence & Export | 3/3 | Completed | 2026-03-14 |
 | 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
+| 6. Pipeline Refresh | 2/2 | In Progress | N/A |

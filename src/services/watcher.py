@@ -7,7 +7,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from src.db.session import db_session
 from src.services.ingestor import RecursiveIngestor
-from src.services.extraction_pipeline import ExtractionPipeline
+from src.services.extraction_job_service import ExtractionJobService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -21,7 +21,7 @@ class IngestionHandler(FileSystemEventHandler):
         self.processed_dir = Path(processed_dir).resolve()
         self.failed_dir = Path(failed_dir).resolve()
         self.ingestor = RecursiveIngestor()
-        self.pipeline = ExtractionPipeline()
+        self.job_service = ExtractionJobService()
 
     def on_created(self, event):
         if not event.is_directory:
@@ -48,7 +48,7 @@ class IngestionHandler(FileSystemEventHandler):
             logger.info(f"Ignoring file with unsupported extension: {filename}")
             return
 
-        logger.info(f"New file detected: {file_path}. Starting pipeline...")
+        logger.info(f"New file detected: {file_path}. Starting ingestion...")
         
         # Wait a brief moment to ensure file is fully written (especially for large files)
         time.sleep(1)
@@ -59,10 +59,9 @@ class IngestionHandler(FileSystemEventHandler):
             package_id = self.ingestor.process_package(session, str(path), filename)
             logger.info(f"Ingested {filename} -> Package ID: {package_id}")
 
-            # 2. Extraction
-            # process_package in pipeline manages its own session
-            self.pipeline.process_package(package_id)
-            logger.info(f"Extraction complete for Package ID: {package_id}")
+            # 2. Queue extraction
+            job = self.job_service.enqueue_package(session, package_id)
+            logger.info(f"Queued extraction job {job.id} for Package ID: {package_id}")
 
             # 3. Move to processed
             dest_path = self.processed_dir / filename

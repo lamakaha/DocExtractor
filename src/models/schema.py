@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, ForeignKey, LargeBinary, Text, DateTime, Float, Boolean
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
@@ -17,6 +17,7 @@ class Package(Base):
 
     extracted_files = relationship("ExtractedFile", back_populates="package", cascade="all, delete-orphan")
     logs = relationship("PackageLog", back_populates="package", cascade="all, delete-orphan")
+    extraction_jobs = relationship("ExtractionJob", back_populates="package", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Package(id={self.id}, original_filename={self.original_filename}, status={self.status}, archived={self.is_archived})>"
@@ -74,3 +75,29 @@ class Extractions(Base):
 
     def __repr__(self):
         return f"<Extractions(id={self.id}, package_id={self.package_id}, type={self.document_type})>"
+
+
+class ExtractionJob(Base):
+    __tablename__ = "extraction_jobs"
+    __table_args__ = (UniqueConstraint("package_id", "job_type", name="uq_extraction_jobs_package_job_type"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    package_id = Column(String(36), ForeignKey("packages.id"), nullable=False)
+    job_type = Column(String, nullable=False, default="EXTRACT_PACKAGE")
+    status = Column(String, nullable=False, default="PENDING")
+    attempts = Column(Integer, nullable=False, default=0)
+    max_attempts = Column(Integer, nullable=False, default=3)
+    claimed_by = Column(String, nullable=True)
+    claimed_at = Column(DateTime, nullable=True)
+    lease_expires_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    package = relationship("Package", back_populates="extraction_jobs")
+
+    def __repr__(self):
+        return (
+            f"<ExtractionJob(id={self.id}, package_id={self.package_id}, job_type={self.job_type}, "
+            f"status={self.status}, attempts={self.attempts})>"
+        )

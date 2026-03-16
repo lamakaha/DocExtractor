@@ -15,7 +15,7 @@
 
 ### 2. Core Extraction Service (Phase 2)
 - **REQ-EXT-01: Gemini Integration:**
-  - Use Gemini 1.5 Pro to process the merged context (Email text + Image/PDF pages).
+  - Use Gemini to process canonical PDF pages derived from the selected package document.
 - **REQ-EXT-02: Two-step Agentic Logic:**
   - Implement logic: Classification (using cues) -> Extraction (using schema).
 - **REQ-EXT-03: Triplet Standard:**
@@ -23,7 +23,9 @@
 - **REQ-EXT-04: Pydantic Validation:**
   - Use Pydantic to validate extracted data against the schema.
 - **REQ-EXT-05: Coordinate Scaling:**
-  - Scale normalized Gemini coordinates (0-1000) to image-specific pixels.
+  - Keep normalized Gemini coordinates (0-1000) as the persisted source of truth and scale only at render time.
+- **REQ-EXT-06: Canonical PDF Normalization:**
+  - Normalize supported source files into a canonical PDF before extraction and review.
 
 ### 3. Human-in-the-Loop Review UI (Phase 3)
 - **REQ-UI-01: Dashboard:**
@@ -32,6 +34,8 @@
   - Side-by-side view: Original document (left) vs. Extracted form (right).
 - **REQ-UI-03: Bounding Box Rendering:**
   - Draw bounding boxes on the document image when a field is focused.
+- **REQ-UI-06: Canonical Review Artifact:**
+  - The reviewer must use the canonical PDF artifact as the primary source document for display and grounding.
 - **REQ-UI-04: Color Coding:**
   - Red (<0.70 Confidence), Yellow (0.70-0.95), Green (>0.95).
 - **REQ-UI-05: Interaction & Approval:**
@@ -67,11 +71,13 @@
 | REQ-EXT-03  | Phase 2 | Pending |
 | REQ-EXT-04  | Phase 2 | Pending |
 | REQ-EXT-05  | Phase 2 | Pending |
+| REQ-EXT-06  | Phase 6 | Pending |
 | REQ-UI-01   | Phase 3 | Pending |
 | REQ-UI-02   | Phase 3 | Pending |
 | REQ-UI-03   | Phase 3 | Pending |
 | REQ-UI-04   | Phase 3 | Pending |
 | REQ-UI-05   | Phase 3 | Pending |
+| REQ-UI-06   | Phase 6 | Pending |
 | REQ-DAT-01  | Phase 4 | Pending |
 | REQ-DAT-02  | Phase 4 | Pending |
 | REQ-EXP-01  | Phase 4 | Pending |

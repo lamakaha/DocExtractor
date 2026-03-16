@@ -134,7 +134,7 @@ def render_dashboard():
             
             # Selection Checkbox
             is_selected = pkg.id in st.session_state.selected_packages
-            if cols[0].checkbox("", value=is_selected, key=f"select_{pkg.id}"):
+            if cols[0].checkbox("Select", value=is_selected, key=f"select_{pkg.id}", label_visibility="collapsed"):
                 st.session_state.selected_packages.add(pkg.id)
             else:
                 st.session_state.selected_packages.discard(pkg.id)
