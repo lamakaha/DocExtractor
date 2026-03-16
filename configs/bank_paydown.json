@@ -28,5 +28,34 @@
         "amount": "currency"
       }
     }
+  },
+  "analytical_mappings": {
+    "summary": {
+      "lender_name": {
+        "path": "$.lender_name.value",
+        "type": "string"
+      },
+      "total_amount": {
+        "path": "$.total_amount.value",
+        "type": "decimal"
+      },
+      "document_date": {
+        "path": "$.effective_date.value",
+        "type": "string"
+      }
+    },
+    "transactions": {
+      "path": "$.transactions.value",
+      "fields": {
+        "component": {
+          "path": "$.component.value",
+          "type": "string"
+        },
+        "amount": {
+          "path": "$.amount.value",
+          "type": "decimal"
+        }
+      }
+    }
   }
 }

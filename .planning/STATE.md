@@ -2,17 +2,17 @@
 
 ## Project Reference
 - **Core Value**: High-integrity intake for bank documents bridging unstructured archives (EML/ZIP) to structured accounting data.
-- **Current Focus**: Pipeline refresh around a canonical PDF review contract.
-- **Active Phase**: 6 (In Progress)
+- **Current Focus**: Phase 6 completed; pipeline refresh landed around the canonical PDF review contract.
+- **Active Phase**: 6 (Completed)
 
 ## Current Position
 - **Phase**: 6 - Pipeline Refresh
-- **Plan**: 06-03 Multi-Page Reconciliation (Completed)
-- **Status**: In Progress
-- **Progress**: [|||||||||-] 90%
+- **Plan**: 06-04 Config-Driven Analytical Shredding (Completed)
+- **Status**: Completed
+- **Progress**: [||||||||||] 100%
 
 ## Performance Metrics
-- **Completion**: 4/5 Phases
+- **Completion**: 5/5 Phases
 - **Uptime**: N/A
 - **Errors**: 0
 
@@ -39,11 +39,11 @@
 - [x] Phase 6: Pipeline Refresh (Canonical PDF foundation)
 - [x] Runtime durability (queueing, idempotent enqueue, bounded retries)
 - [x] Multi-page reconciliation
-- [ ] Config-driven analytical shredding
+- [x] Config-driven analytical shredding
 
 ### Blockers
 - None.
 
 ## Session Continuity
-- **Last Action**: Implemented 06-03 by adding package-level reconciliation for page extraction results and reviewer page-jump support via field provenance.
-- **Next Step**: Plan and implement config-driven analytical shredding under Phase 6.
+- **Last Action**: Implemented 06-04 by moving analytical shredding to config-driven mappings and validating multi-document analytical behavior.
+- **Next Step**: Phase 6 is complete. Review residual risks and decide whether to open a new phase for observability and package-context classification improvements.

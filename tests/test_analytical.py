@@ -1,13 +1,15 @@
 import pytest
-import os
 import sqlite3
 import json
-import pandas as pd
+import uuid
+from pathlib import Path
 from src.services.analytical_service import AnalyticalService
 
 @pytest.fixture
-def temp_db(tmp_path):
-    db_path = tmp_path / "test_packages.db"
+def temp_db():
+    base_dir = Path.cwd() / ".tmp-analytical-tests"
+    base_dir.mkdir(exist_ok=True)
+    db_path = base_dir / f"test_packages_{uuid.uuid4().hex}.db"
     conn = sqlite3.connect(db_path)
     conn.execute("CREATE TABLE packages (id TEXT PRIMARY KEY, original_filename TEXT, status TEXT, created_at DATETIME)")
     conn.execute("CREATE TABLE extractions (id INTEGER PRIMARY KEY, package_id TEXT, document_type TEXT, extraction_json TEXT, confidence_score FLOAT, is_reviewed BOOLEAN, created_at DATETIME, FOREIGN KEY(package_id) REFERENCES packages(id))")
@@ -32,15 +34,76 @@ def temp_db(tmp_path):
     conn.close()
     return str(db_path)
 
-def test_analytical_views(temp_db):
-    service = AnalyticalService(db_path=temp_db)
+@pytest.fixture
+def temp_configs():
+    base_dir = Path.cwd() / ".tmp-analytical-tests"
+    base_dir.mkdir(exist_ok=True)
+    config_dir = base_dir / f"configs_{uuid.uuid4().hex}"
+    config_dir.mkdir()
+    bank_paydown = {
+        "document_type": "Bank Paydown",
+        "analytical_mappings": {
+            "summary": {
+                "lender_name": {"path": "$.lender_name.value", "type": "string"},
+                "total_amount": {"path": "$.total_amount.value", "type": "decimal"},
+                "document_date": {"path": "$.effective_date.value", "type": "string"},
+            },
+            "transactions": {
+                "path": "$.transactions.value",
+                "fields": {
+                    "component": {"path": "$.component.value", "type": "string"},
+                    "amount": {"path": "$.amount.value", "type": "decimal"},
+                },
+            },
+        },
+    }
+    secondary_doc = {
+        "document_type": "Fee Notice",
+        "analytical_mappings": {
+            "summary": {
+                "lender_name": {"path": "$.issuer.value", "type": "string"},
+                "total_amount": {"path": "$.fee_total.value", "type": "decimal"},
+                "document_date": {"path": "$.notice_date.value", "type": "string"},
+            }
+        },
+    }
+    (config_dir / "bank_paydown.json").write_text(json.dumps(bank_paydown), encoding="utf-8")
+    (config_dir / "fee_notice.json").write_text(json.dumps(secondary_doc), encoding="utf-8")
+    return str(config_dir)
+
+def test_analytical_views(temp_db, temp_configs):
+    service = AnalyticalService(db_path=temp_db, configs_path=temp_configs)
     summary = service.get_summary()
     assert len(summary) == 1
     assert summary.iloc[0]['lender_name'] == "Test Bank"
     assert summary.iloc[0]['filename'] == "test.pdf"
     assert float(summary.iloc[0]['total_amount']) == 1234.56
+    assert summary.iloc[0]['document_date'] == "2023-01-01"
     
     transactions = service.get_transactions()
     assert len(transactions) == 2
     assert transactions.iloc[0]['component'] == "Principal"
     assert float(transactions.iloc[1]['amount']) == 234.56
+
+
+def test_analytical_views_skip_unconfigured_transaction_docs(temp_configs):
+    base_dir = Path.cwd() / ".tmp-analytical-tests"
+    base_dir.mkdir(exist_ok=True)
+    db_path = base_dir / f"test_packages_{uuid.uuid4().hex}.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE packages (id TEXT PRIMARY KEY, original_filename TEXT, status TEXT, created_at DATETIME)")
+    conn.execute("CREATE TABLE extractions (id INTEGER PRIMARY KEY, package_id TEXT, document_type TEXT, extraction_json TEXT, confidence_score FLOAT, is_reviewed BOOLEAN, created_at DATETIME, FOREIGN KEY(package_id) REFERENCES packages(id))")
+    conn.execute("INSERT INTO packages VALUES (?, ?, ?, ?)", ("pkg2", "fee.pdf", "APPROVED", "2023-01-01"))
+    conn.execute(
+        "INSERT INTO extractions (package_id, document_type, extraction_json, confidence_score, is_reviewed, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        ("pkg2", "Fee Notice", json.dumps({"issuer": {"value": "Issuer A"}, "fee_total": {"value": "99.50"}, "notice_date": {"value": "2024-01-01"}}), 0.9, True, "2023-01-01")
+    )
+    conn.commit()
+    conn.close()
+
+    service = AnalyticalService(db_path=str(db_path), configs_path=temp_configs)
+    summary = service.get_summary()
+    assert len(summary) == 1
+    assert summary.iloc[0]["lender_name"] == "Issuer A"
+    transactions = service.get_transactions()
+    assert transactions.empty

@@ -22,6 +22,7 @@ ENV/
 .codex-skills/
 .gemini/
 .tmp-tests/
+.tmp-analytical-tests/
 .pytest-lite*/
 
 # DocExtractor Specific

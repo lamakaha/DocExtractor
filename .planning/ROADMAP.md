@@ -1,9 +1,9 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: 6 - Pipeline Refresh
-- **Progress**: 5 phases complete; refresh in progress with 2 completed implementation slices
-- **Last Updated**: 2026-03-15
+- **Current Phase**: Completed
+- **Progress**: 100%
+- **Last Updated**: 2026-03-16
 
 ## Phases
 - [x] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
@@ -94,10 +94,11 @@
   2. Extractions reference canonical PDFs and persist normalized bbox coordinates.
   3. The reviewer remains page + bbox based with one consistent contract.
   4. Follow-on plans are defined for runtime durability, reconciliation, and analytics generalization.
-**Plans**: 3 completed plans
+**Plans**: 4 completed plans
 - [x] 06-01-PLAN.md — Canonical PDF Foundation
 - [x] 06-02-PLAN.md — Durable Extraction Job Handoff
 - [x] 06-03-PLAN.md — Multi-Page Reconciliation
+- [x] 06-04-PLAN.md — Config-Driven Analytical Shredding
 
 ---
 
@@ -109,4 +110,4 @@
 | 3. HITL UI | 3/3 | Completed | 2026-03-14 |
 | 4. Persistence & Export | 3/3 | Completed | 2026-03-14 |
 | 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
-| 6. Pipeline Refresh | 3/3 | In Progress | N/A |
+| 6. Pipeline Refresh | 4/4 | Completed | 2026-03-16 |
