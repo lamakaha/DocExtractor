@@ -29,6 +29,7 @@ class ExtractionPipeline:
         self.extraction_service = ExtractionService()
         self.reconciliation_service = ReconciliationService()
         self.configs_path = configs_path
+        self.extraction_render_dpi = int(os.getenv("EXTRACTION_RENDER_DPI", "300"))
 
     def _build_classification_context(
         self,
@@ -292,7 +293,7 @@ class ExtractionPipeline:
                 return False
 
             # 2. Primary document selection and canonicalization
-            log_package_event(package_id, "PIPELINE", f"Preparing package for classification (found {len(files)} files)")
+                log_package_event(package_id, "PIPELINE", f"Preparing package for classification (found {len(files)} files)")
             selection = self._select_package_documents(files)
             main_document_file = selection["primary"]
             if not main_document_file:
@@ -316,9 +317,14 @@ class ExtractionPipeline:
 
             # Prepare canonical PDF pages for extraction
             items_to_process = []
-            log_package_event(package_id, "PIPELINE", "Converting canonical PDF to images for processing")
+            log_package_event(
+                package_id,
+                "PIPELINE",
+                "Converting canonical PDF to images for processing",
+                details={"render_dpi": self.extraction_render_dpi},
+            )
             try:
-                pdf_pages = convert_from_bytes(canonical_file.content)
+                pdf_pages = convert_from_bytes(canonical_file.content, dpi=self.extraction_render_dpi)
                 for i, page in enumerate(pdf_pages):
                     img_byte_arr = io.BytesIO()
                     page.save(img_byte_arr, format="PNG")
@@ -383,6 +389,7 @@ class ExtractionPipeline:
                     package_id,
                     "EXTRACTION",
                     f"Extraction completed for page {item_data['page_num']}",
+                    level="WARNING" if self.extraction_service.last_run_details.get("bbox_audit", {}).get("suspicious_field_count") else "INFO",
                     details=self._build_extraction_audit_details(
                         self.extraction_service.last_run_details,
                         page_number=item_data["page_num"],

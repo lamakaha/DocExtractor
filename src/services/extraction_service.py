@@ -2,6 +2,7 @@ import os
 import json
 import base64
 import time
+from collections import defaultdict
 from typing import Dict, Any, List, Optional
 from src.services.gemini_client import get_gemini_client
 from src.models.triplets import Triplet, ExtractionResult, BoundingBox
@@ -15,7 +16,7 @@ class ExtractionService:
     def __init__(self):
         self._client = None
         self.model_id = os.getenv("GEMINI_MODEL", "google/gemini-2.0-flash-001")
-        self.prompt_version = "extraction.v1.structured-json"
+        self.prompt_version = "extraction.v2.tight-grounding"
         self.last_run_details: Dict[str, Any] = {}
 
     @property
@@ -114,21 +115,104 @@ class ExtractionService:
             return items
         return data
 
-    def extract(self, content: bytes, mime_type: str, doc_type: str, extraction_schema: Dict[str, Any]) -> ExtractionResult:
-        """
-        Extracts structured data from a document package using OpenRouter.
-        """
-        json_schema = self._convert_schema_to_json_schema(extraction_schema)
-
-        prompt = f"""Extract data from this '{doc_type}' document as structured JSON.
+    def _build_prompt(self, doc_type: str) -> str:
+        return f"""Extract data from this '{doc_type}' document as structured JSON.
 For every field, provide:
 1. 'value': The normalized value (e.g. 15000.00 for currency, YYYY-MM-DD for dates).
 2. 'confidence': Your confidence in this extraction (0.0 to 1.0).
 3. 'bbox': The bounding box coordinates [ymin, xmin, ymax, xmax] in 0-1000 scale.
 
-IMPORTANT: Ensure the bounding boxes are accurate for each specific value extracted.
-If a field is not found, use null for value and 0.0 for confidence.
+Grounding rules:
+- The bbox must tightly cover only the exact printed value you extracted, not the entire line, paragraph, or nearby labels.
+- Do not guess a bbox from layout alone.
+- If you cannot visually ground a value precisely, keep the value if you are confident, but return bbox as [0, 0, 0, 0] and lower confidence accordingly.
+- For list items, each subfield needs its own bbox for the exact component text or amount text.
+- Reuse a bbox for multiple unrelated fields only if the exact same printed text is being referenced.
 """
+
+    def _is_missing_value(self, value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, str):
+            return value.strip() == ""
+        if isinstance(value, (list, dict)):
+            return len(value) == 0
+        return False
+
+    def _collect_triplet_payloads(self, data: Any, prefix: str = "") -> List[tuple[str, Dict[str, Any]]]:
+        payloads: List[tuple[str, Dict[str, Any]]] = []
+        if isinstance(data, dict):
+            if "value" in data and "confidence" in data:
+                payloads.append((prefix or "root", data))
+                value = data.get("value")
+                if isinstance(value, dict):
+                    payloads.extend(self._collect_triplet_payloads(value, prefix=prefix))
+                elif isinstance(value, list):
+                    for index, item in enumerate(value):
+                        item_prefix = f"{prefix}[{index}]" if prefix else f"[{index}]"
+                        payloads.extend(self._collect_triplet_payloads(item, prefix=item_prefix))
+            else:
+                for key, value in data.items():
+                    next_prefix = f"{prefix}.{key}" if prefix else key
+                    payloads.extend(self._collect_triplet_payloads(value, prefix=next_prefix))
+        elif isinstance(data, list):
+            for index, item in enumerate(data):
+                item_prefix = f"{prefix}[{index}]" if prefix else f"[{index}]"
+                payloads.extend(self._collect_triplet_payloads(item, prefix=item_prefix))
+        return payloads
+
+    def _build_bbox_audit(self, extracted_fields_json: Dict[str, Any]) -> Dict[str, Any]:
+        flags: Dict[str, List[str]] = {}
+        boxes_to_fields: defaultdict[tuple[int, int, int, int], List[str]] = defaultdict(list)
+
+        for field_name, payload in self._collect_triplet_payloads(extracted_fields_json):
+            field_flags: List[str] = []
+            bbox = payload.get("bbox")
+            value = payload.get("value")
+            confidence = payload.get("confidence", 0.0)
+
+            if bbox is None:
+                if not self._is_missing_value(value):
+                    field_flags.append("missing_bbox")
+            elif bbox == [0, 0, 0, 0]:
+                if not self._is_missing_value(value):
+                    field_flags.append("ungrounded_bbox_zeroed")
+            elif isinstance(bbox, list) and len(bbox) == 4:
+                ymin, xmin, ymax, xmax = bbox
+                height = ymax - ymin
+                width = xmax - xmin
+                if height <= 4:
+                    field_flags.append("bbox_too_short")
+                if width <= 8 and not self._is_missing_value(value):
+                    field_flags.append("bbox_too_narrow")
+                if height >= 400 or width >= 700:
+                    field_flags.append("bbox_too_large")
+                if confidence >= 0.95 and "bbox_too_short" in field_flags:
+                    field_flags.append("high_confidence_tiny_bbox")
+                boxes_to_fields[tuple(bbox)].append(field_name)
+            else:
+                field_flags.append("invalid_bbox_shape")
+
+            if field_flags:
+                flags[field_name] = field_flags
+
+        for bbox, field_names in boxes_to_fields.items():
+            if bbox == (0, 0, 0, 0) or len(field_names) < 2:
+                continue
+            for field_name in field_names:
+                flags.setdefault(field_name, []).append("duplicate_bbox")
+
+        return {
+            "flagged_fields": flags,
+            "suspicious_field_count": len(flags),
+        }
+
+    def extract(self, content: bytes, mime_type: str, doc_type: str, extraction_schema: Dict[str, Any]) -> ExtractionResult:
+        """
+        Extracts structured data from a document package using OpenRouter.
+        """
+        json_schema = self._convert_schema_to_json_schema(extraction_schema)
+        prompt = self._build_prompt(doc_type)
 
         try:
             start = time.perf_counter()
@@ -166,6 +250,7 @@ If a field is not found, use null for value and 0.0 for confidence.
 
             raw_data = response.choices[0].message.content
             extracted_fields_json = json.loads(raw_data)
+            bbox_audit = self._build_bbox_audit(extracted_fields_json)
             usage = getattr(response, "usage", None)
             self.last_run_details = {
                 "model_id": self.model_id,
@@ -173,6 +258,7 @@ If a field is not found, use null for value and 0.0 for confidence.
                 "document_type": doc_type,
                 "schema_field_count": len(extraction_schema),
                 "latency_ms": round((time.perf_counter() - start) * 1000, 2),
+                "bbox_audit": bbox_audit,
                 "usage": {
                     "prompt_tokens": getattr(usage, "prompt_tokens", None),
                     "completion_tokens": getattr(usage, "completion_tokens", None),

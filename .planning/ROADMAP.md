@@ -2,7 +2,7 @@
 
 ## Status
 - **Current Phase**: None active
-- **Progress**: 8 phases complete; current planned roadmap delivered
+- **Progress**: 9 phases complete; current planned roadmap delivered
 - **Last Updated**: 2026-03-19
 
 ## Phases
@@ -14,6 +14,7 @@
 - [x] **Phase 6: Pipeline Refresh** - Canonical PDF normalization, normalized bbox persistence, and staged durability improvements for the extraction pipeline.
 - [x] **Phase 7: Observability & Context** - Structured runtime metadata, richer package-context classification, and improved debugging/operational traceability.
 - [x] **Phase 8: Hardening** - Runtime recovery semantics, stronger package-level decision rules, and reviewer/debugging hardening for bbox auditability.
+- [x] **Phase 9: Grounding Quality** - Prompt, rendering, and audit improvements for better bbox localization quality.
 
 ---
 
@@ -132,6 +133,17 @@ Phase 8 is now open for the remaining architectural hardening work that was inte
 - [x] 08-02-PLAN.md — Package-Level Selection and Reconciliation
 - [x] 08-03-PLAN.md — Reviewer BBox Debugging and Raw Response Audit
 
+### Phase 9: Grounding Quality
+**Goal**: Improve bbox localization quality without changing the canonical-PDF review contract by tightening prompt guidance, increasing extraction render quality, and adding grounding audits.
+**Depends on**: Phase 8
+**Requirements**: REQ-EXT-03, REQ-EXT-05, REQ-NFR-01, REQ-UI-03
+**Success Criteria**:
+  1. Extraction prompts explicitly request tight value-only grounding and clear fallback behavior.
+  2. Extraction page rendering uses a configurable higher-quality input path.
+  3. Extraction audit logs flag suspicious bbox patterns for review.
+**Plans**: 1 completed plan
+- [x] 09-01-PLAN.md — BBox Grounding Hardening
+
 ---
 
 ## Progress Table
@@ -145,3 +157,4 @@ Phase 8 is now open for the remaining architectural hardening work that was inte
 | 6. Pipeline Refresh | 4/4 | Completed | 2026-03-16 |
 | 7. Observability & Context | 3/3 | Completed | 2026-03-16 |
 | 8. Hardening | 3/3 | Completed | 2026-03-19 |
+| 9. Grounding Quality | 1/1 | Completed | 2026-03-19 |

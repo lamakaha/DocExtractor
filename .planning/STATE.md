@@ -2,12 +2,12 @@
 
 ## Project Reference
 - **Core Value**: High-integrity intake for bank documents bridging unstructured archives (EML/ZIP) to structured accounting data.
-- **Current Focus**: Maintenance after Phase 8 hardening and bbox-debugging closeout.
+- **Current Focus**: Maintenance after Phase 9 grounding-quality hardening.
 - **Active Phase**: None
 
 ## Current Position
 - **Phase**: None active
-- **Plan**: Phase 8 delivered through 08-03
+- **Plan**: Phase 9 delivered through 09-01
 - **Status**: Maintenance
 - **Progress**: [||||||||||] 100%
 
@@ -46,10 +46,11 @@
 - [x] Runtime stale-claim recovery and terminal dead-letter handling
 - [x] Explicit package-level candidate selection and supporting-artifact reconciliation
 - [x] Raw extraction-response audit logging and reviewer bbox overlay verification
+- [x] Tight-grounding prompt, higher-DPI extraction renders, and bbox audit heuristics
 
 ### Blockers
 - None.
 
 ## Session Continuity
-- **Last Action**: Implemented 08-03 by persisting extraction audit payloads and replacing the reviewer canvas highlight with direct image overlays.
-- **Next Step**: No active phase is required. Continue only if you want more optional hardening or model-quality tuning.
+- **Last Action**: Implemented 09-01 by tightening bbox prompting, increasing extraction render DPI, and adding bbox sanity audit metadata.
+- **Next Step**: No active phase is required. Retest the paydown fixture and compare the new bbox audit details before deciding on any model-specific follow-up.

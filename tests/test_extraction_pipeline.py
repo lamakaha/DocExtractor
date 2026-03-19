@@ -35,9 +35,10 @@ def test_process_package_creates_canonical_pdf_and_persists_normalized_bboxes(mo
         monkeypatch.setattr("src.services.extraction_pipeline.db_session", lambda: session)
         log_calls = []
         monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: log_calls.append((args, kwargs)))
+        convert_calls = []
         monkeypatch.setattr(
             "src.services.extraction_pipeline.convert_from_bytes",
-            lambda content: [Image.new("RGB", (120, 200), "white")],
+            lambda content, **kwargs: convert_calls.append(kwargs) or [Image.new("RGB", (120, 200), "white")],
         )
 
         pipeline = ExtractionPipeline()
@@ -78,6 +79,7 @@ def test_process_package_creates_canonical_pdf_and_persists_normalized_bboxes(mo
         extraction_json = json.loads(extraction.extraction_json)
         assert extraction_json["lender_name"]["bbox"]["coordinates"] == [10, 20, 30, 40]
         assert extraction_json["lender_name"]["page_number"] == 1
+        assert convert_calls[0]["dpi"] == 300
         assert any(call[0][1] == "CLASSIFICATION" and call[1].get("details", {}).get("model_id") == "test-model" for call in log_calls)
         extraction_detail_calls = [call for call in log_calls if call[0][1] == "EXTRACTION" and call[0][2] == "Extraction completed for page 1"]
         assert extraction_detail_calls
@@ -115,7 +117,7 @@ def test_process_package_reconciles_multi_page_results(monkeypatch):
         monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: log_calls.append((args, kwargs)))
         monkeypatch.setattr(
             "src.services.extraction_pipeline.convert_from_bytes",
-            lambda content: [Image.new("RGB", (120, 200), "white"), Image.new("RGB", (120, 200), "white")],
+            lambda content, **kwargs: [Image.new("RGB", (120, 200), "white"), Image.new("RGB", (120, 200), "white")],
         )
 
         pipeline = ExtractionPipeline()
@@ -247,6 +249,69 @@ def test_process_package_logs_explicit_package_selection_and_supporting_context(
         assert classification_calls[0]["mime_type"] == ["image/png", "image/png"]
         assert "Primary candidate: loan_paydown_notice.pdf (application/pdf)" in classification_calls[0]["text_context"]
         assert "Supporting textual artifacts: cover_email.txt (text/plain)" in classification_calls[0]["text_context"]
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_process_package_marks_extraction_log_warning_when_bbox_audit_flags_exist(monkeypatch):
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    try:
+        package = Package(id="pkg4", original_filename="sample.pdf", status="INGESTED")
+        session.add(package)
+        source_file = ExtractedFile(
+            package_id=package.id,
+            filename="sample.pdf",
+            original_path="sample.pdf",
+            content=b"%PDF-1.4 fake",
+            extracted_text=None,
+            mime_type="application/pdf",
+            size=13,
+        )
+        session.add(source_file)
+        session.commit()
+
+        monkeypatch.setattr("src.services.extraction_pipeline.db_session", lambda: session)
+        log_calls = []
+        monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: log_calls.append((args, kwargs)))
+        monkeypatch.setattr(
+            "src.services.extraction_pipeline.convert_from_bytes",
+            lambda content, **kwargs: [Image.new("RGB", (120, 200), "white")],
+        )
+
+        pipeline = ExtractionPipeline()
+        monkeypatch.setattr(pipeline.classification_service, "classify", lambda content, mime_type, text_context="": "Commercial_Loan_Paydown")
+        pipeline.classification_service.last_run_details = {"model_id": "test-model", "content_items": 1, "text_context_chars": 0}
+        pipeline.extraction_service.last_run_details = {
+            "model_id": "test-model",
+            "prompt_version": "extraction.v2.tight-grounding",
+            "bbox_audit": {"suspicious_field_count": 1, "flagged_fields": {"lender_name": ["bbox_too_short"]}},
+        }
+        monkeypatch.setattr(
+            pipeline.extraction_service,
+            "extract",
+            lambda **kwargs: ExtractionResult(
+                document_type="Commercial_Loan_Paydown",
+                fields={
+                    "lender_name": Triplet(
+                        value="Test Bank",
+                        confidence=0.95,
+                        bbox=BoundingBox(coordinates=[10, 20, 13, 40]),
+                    )
+                },
+                raw_response='{"lender_name":{"value":"Test Bank","confidence":0.95,"bbox":[10,20,13,40]}}',
+            ),
+        )
+
+        pipeline.process_package(package.id)
+
+        extraction_detail_calls = [call for call in log_calls if call[0][1] == "EXTRACTION" and call[0][2] == "Extraction completed for page 1"]
+        assert extraction_detail_calls
+        assert extraction_detail_calls[0][1]["level"] == "WARNING"
     finally:
         session.close()
         engine.dispose()
