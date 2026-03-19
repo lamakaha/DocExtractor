@@ -62,30 +62,35 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REQ-ING-01  | Phase 1 | Pending |
-| REQ-ING-02  | Phase 1 | Pending |
-| REQ-ING-03  | Phase 1 | Pending |
-| REQ-ING-04  | Phase 1 | Pending |
-| REQ-EXT-01  | Phase 2 | Pending |
-| REQ-EXT-02  | Phase 2 | Pending |
-| REQ-EXT-03  | Phase 2 | Pending |
-| REQ-EXT-04  | Phase 2 | Pending |
-| REQ-EXT-05  | Phase 2 | Pending |
-| REQ-EXT-06  | Phase 6 | Pending |
-| REQ-UI-01   | Phase 3 | Pending |
-| REQ-UI-02   | Phase 3 | Pending |
-| REQ-UI-03   | Phase 3 | Pending |
-| REQ-UI-04   | Phase 3 | Pending |
-| REQ-UI-05   | Phase 3 | Pending |
-| REQ-UI-06   | Phase 6 | Pending |
-| REQ-DAT-01  | Phase 4 | Pending |
-| REQ-DAT-02  | Phase 4 | Pending |
-| REQ-EXP-01  | Phase 4 | Pending |
-| REQ-EXP-02  | Phase 4 | Pending |
-| REQ-NFR-01  | Phase 1 | Pending |
-| REQ-NFR-02  | Phase 1 | Pending |
-| REQ-NFR-03  | Phase 2 | Pending |
-| REQ-NFR-04  | Phase 1 | Pending |
+| REQ-ING-01  | Phase 1 | Implemented |
+| REQ-ING-02  | Phase 1 | Implemented |
+| REQ-ING-03  | Phase 1 | Implemented |
+| REQ-ING-04  | Phase 1 | Implemented |
+| REQ-EXT-01  | Phase 2 / Phase 6 / Phase 7 | Implemented |
+| REQ-EXT-02  | Phase 2 / Phase 7 | Implemented |
+| REQ-EXT-03  | Phase 2 / Phase 6 | Implemented |
+| REQ-EXT-04  | Phase 2 | Implemented |
+| REQ-EXT-05  | Phase 6 | Implemented |
+| REQ-EXT-06  | Phase 6 | Implemented |
+| REQ-UI-01   | Phase 3 | Implemented |
+| REQ-UI-02   | Phase 3 / Phase 6 | Implemented |
+| REQ-UI-03   | Phase 3 / Phase 6 | Implemented |
+| REQ-UI-04   | Phase 3 | Implemented |
+| REQ-UI-05   | Phase 3 | Implemented |
+| REQ-UI-06   | Phase 6 | Implemented |
+| REQ-DAT-01  | Phase 4 | Implemented |
+| REQ-DAT-02  | Phase 4 / Phase 6 | Implemented |
+| REQ-EXP-01  | Phase 4 | Implemented |
+| REQ-EXP-02  | Phase 4 | Implemented |
+| REQ-NFR-01  | Phase 1 | Implemented |
+| REQ-NFR-02  | Phase 1 | Implemented |
+| REQ-NFR-03  | Phase 2 / Phase 6 / Phase 7 | Implemented |
+| REQ-NFR-04  | Phase 1 / Phase 7 | Partially Addressed |
+
+## Notes
+- All planned phases through Phase 7 are implemented.
+- `REQ-NFR-04` remains only partially addressed. Basic operational hygiene exists, but there is no centralized redaction policy layer for structured log details.
+- No additional security/redaction or observability follow-on phase is currently committed; those items are deferred unless a future phase reopens them.
 
 ## Technical Stack
 - **Languages:** Python 3.10+

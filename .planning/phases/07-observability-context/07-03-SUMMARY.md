@@ -14,6 +14,6 @@
 - `python -m pytest tests/test_analytical.py tests/test_dashboard.py -q --basetemp=C:\Users\sarka\OneDrive\Papa\DocExtractor\.pytest-lite-07-03`
 
 ## Remaining Work
-- Aggregate observability is now available, but long-window trend charting and alert thresholds are still UI-policy decisions rather than pipeline defaults.
-- Package-context selection remains heuristic and could still be tightened if future document sets show residual classification ambiguity.
-- Sensitive diagnostic redaction is still a presentation concern; there is no central policy layer yet for detail payload filtering.
+- Aggregate observability is available and currently considered sufficient for the active roadmap.
+- Package-context selection remains heuristic, but no further tuning is currently scheduled.
+- Centralized redaction/policy enforcement is not implemented; that gap is acknowledged and deferred rather than active roadmap work.

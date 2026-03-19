@@ -1,8 +1,8 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: 7 - Observability & Context
-- **Progress**: 7 phases complete; Phase 7 delivered
+- **Current Phase**: None active
+- **Progress**: 7 phases complete; current planned roadmap delivered
 - **Last Updated**: 2026-03-16
 
 ## Phases
@@ -38,7 +38,7 @@
 **Success Criteria**:
   1. System correctly identifies document type (Classification) before attempting extraction.
   2. Extraction returns "Triplet Objects" (Value, Confidence, BBox) for every field.
-  3. Gemini's 0-1000 coordinates are successfully scaled to actual image pixel dimensions.
+  3. Gemini's normalized `0-1000` coordinates remain the persisted source of truth and are scaled only at render time.
   4. Extracted data passes Pydantic validation against the `extraction_schema`.
   5. System supports concurrent processing of multiple extraction jobs.
 **Plans**: 3 plans
@@ -113,6 +113,9 @@
 - [x] 07-01-PLAN.md — Observability and Package Context
 - [x] 07-02-PLAN.md — Observability Reporting and Failure Diagnostics
 - [x] 07-03-PLAN.md — Observability Analytics and Trend Reporting
+
+### Post-Phase Note
+No Phase 8 work is currently committed. Additional hardening around centralized redaction policy, alerting, or further package-context tuning is deferred unless future requirements justify reopening the roadmap.
 
 ---
 
