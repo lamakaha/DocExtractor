@@ -125,9 +125,11 @@ Phase 8 is now open for the remaining architectural hardening work that was inte
 **Success Criteria**:
   1. Extraction jobs recover cleanly from stale claims or worker interruption.
   2. Retry exhaustion results in explicit terminal queue states rather than ambiguous failures.
-  3. Follow-on plans are defined for package-level selection/reconciliation and orchestrator/stage-boundary cleanup if still justified after hardening.
-**Plans**: 1 completed plan
+  3. Package-level candidate selection and supporting-artifact handling are explicit and reproducible.
+  4. Follow-on plans are defined for orchestrator/stage-boundary cleanup if still justified after hardening.
+**Plans**: 2 completed plans
 - [x] 08-01-PLAN.md — Runtime Hardening
+- [x] 08-02-PLAN.md — Package-Level Selection and Reconciliation
 
 ---
 
@@ -141,4 +143,4 @@ Phase 8 is now open for the remaining architectural hardening work that was inte
 | 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
 | 6. Pipeline Refresh | 4/4 | Completed | 2026-03-16 |
 | 7. Observability & Context | 3/3 | Completed | 2026-03-16 |
-| 8. Hardening | 1/1 | In Progress | N/A |
+| 8. Hardening | 2/2 | In Progress | N/A |

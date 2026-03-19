@@ -13,6 +13,10 @@ class CanonicalDocumentService:
 
     TEXTUAL_MIME_TYPES = {"text/plain", "text/html", "text/csv"}
     IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp"}
+    SUPPORTED_MIME_TYPES = {"application/pdf"} | TEXTUAL_MIME_TYPES | IMAGE_MIME_TYPES
+
+    def can_canonicalize(self, mime_type: str) -> bool:
+        return mime_type in self.SUPPORTED_MIME_TYPES
 
     def build_canonical_pdf(
         self,

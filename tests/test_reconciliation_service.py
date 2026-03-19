@@ -41,3 +41,16 @@ def test_reconcile_merges_list_values():
 
     assert result["transactions"]["value"] == [{"id": 1}, {"id": 2}]
     assert result["transactions"]["page_number"] == 2
+
+
+def test_reconcile_deduplicates_duplicate_list_values():
+    service = ReconciliationService()
+
+    result = service.reconcile(
+        [
+            {"transactions": {"value": [{"id": 1}], "confidence": 0.7, "bbox": {"coordinates": [1, 1, 2, 2]}, "page_number": 1}},
+            {"transactions": {"value": [{"id": 1}, {"id": 2}], "confidence": 0.8, "bbox": {"coordinates": [3, 3, 4, 4]}, "page_number": 2}},
+        ]
+    )
+
+    assert result["transactions"]["value"] == [{"id": 1}, {"id": 2}]

@@ -149,3 +149,96 @@ def test_process_package_reconciles_multi_page_results(monkeypatch):
     finally:
         session.close()
         engine.dispose()
+
+
+def test_process_package_logs_explicit_package_selection_and_supporting_context(monkeypatch):
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    try:
+        package = Package(id="pkg3", original_filename="mixed.zip", status="INGESTED")
+        session.add(package)
+        primary_pdf = ExtractedFile(
+            package_id=package.id,
+            filename="loan_paydown_notice.pdf",
+            original_path="loan_paydown_notice.pdf",
+            content=b"%PDF-1.4 primary",
+            extracted_text=None,
+            mime_type="application/pdf",
+            size=4096,
+        )
+        supporting_text = ExtractedFile(
+            package_id=package.id,
+            filename="cover_email.txt",
+            original_path="cover_email.txt",
+            content=b"borrower requested payoff support",
+            extracted_text="borrower requested payoff support",
+            mime_type="text/plain",
+            size=128,
+        )
+        supporting_pdf = ExtractedFile(
+            package_id=package.id,
+            filename="backup_statement.pdf",
+            original_path="backup_statement.pdf",
+            content=b"%PDF-1.4 support",
+            extracted_text=None,
+            mime_type="application/pdf",
+            size=2048,
+        )
+        session.add_all([primary_pdf, supporting_text, supporting_pdf])
+        session.commit()
+
+        monkeypatch.setattr("src.services.extraction_pipeline.db_session", lambda: session)
+        log_calls = []
+        monkeypatch.setattr("src.services.extraction_pipeline.log_package_event", lambda *args, **kwargs: log_calls.append((args, kwargs)))
+
+        def fake_convert(content, **kwargs):
+            if content == primary_pdf.content:
+                return [Image.new("RGB", (120, 200), "white")]
+            return [Image.new("RGB", (60, 80), "white")]
+
+        monkeypatch.setattr("src.services.extraction_pipeline.convert_from_bytes", fake_convert)
+
+        pipeline = ExtractionPipeline()
+        classification_calls = []
+
+        def fake_classify(content, mime_type, text_context=""):
+            classification_calls.append({"content": content, "mime_type": mime_type, "text_context": text_context})
+            return "Commercial_Loan_Paydown"
+
+        monkeypatch.setattr(pipeline.classification_service, "classify", fake_classify)
+        pipeline.classification_service.last_run_details = {"model_id": "test-model", "content_items": 2, "text_context_chars": 0}
+        monkeypatch.setattr(
+            pipeline.extraction_service,
+            "extract",
+            lambda **kwargs: ExtractionResult(
+                document_type="Commercial_Loan_Paydown",
+                fields={
+                    "lender_name": Triplet(
+                        value="Test Bank",
+                        confidence=0.95,
+                        bbox=BoundingBox(coordinates=[10, 20, 30, 40]),
+                    )
+                },
+            ),
+        )
+
+        assert pipeline.process_package(package.id) is True
+
+        pipeline_selection_logs = [call for call in log_calls if call[0][1] == "PIPELINE" and call[0][2].startswith("Selected")]
+        assert len(pipeline_selection_logs) == 1
+        selection_details = pipeline_selection_logs[0][1]["details"]
+        assert selection_details["primary_document"] == "loan_paydown_notice.pdf"
+        assert "backup_statement.pdf" in selection_details["supporting_visual"]
+        assert "cover_email.txt" in selection_details["supporting_text"]
+
+        assert len(classification_calls) == 1
+        assert len(classification_calls[0]["content"]) == 2
+        assert classification_calls[0]["mime_type"] == ["image/png", "image/png"]
+        assert "Primary candidate: loan_paydown_notice.pdf (application/pdf)" in classification_calls[0]["text_context"]
+        assert "Supporting textual artifacts: cover_email.txt (text/plain)" in classification_calls[0]["text_context"]
+    finally:
+        session.close()
+        engine.dispose()

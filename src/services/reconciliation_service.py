@@ -26,7 +26,7 @@ class ReconciliationService:
 
         if isinstance(existing_value, list) and isinstance(candidate_value, list):
             merged = deepcopy(existing)
-            merged["value"] = existing_value + candidate_value
+            merged["value"] = self._deduplicate_list(existing_value + candidate_value)
             merged["confidence"] = max(existing.get("confidence", 0.0), candidate.get("confidence", 0.0))
             if candidate.get("confidence", 0.0) >= existing.get("confidence", 0.0):
                 merged["bbox"] = candidate.get("bbox")
@@ -54,3 +54,10 @@ class ReconciliationService:
         if isinstance(value, (list, dict)):
             return len(value) == 0
         return False
+
+    def _deduplicate_list(self, values: list[Any]) -> list[Any]:
+        deduplicated: list[Any] = []
+        for value in values:
+            if value not in deduplicated:
+                deduplicated.append(deepcopy(value))
+        return deduplicated

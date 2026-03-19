@@ -20,6 +20,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class ExtractionPipeline:
+    PRIMARY_HINT_TERMS = ("paydown", "statement", "notice", "loan", "demand", "invoice")
+    DEPRIORITIZED_HINT_TERMS = ("copy", "duplicate", "backup", "notes", "cover", "summary")
+
     def __init__(self, configs_path: str = "configs"):
         self.classification_service = ClassificationService(configs_path=configs_path)
         self.canonical_document_service = CanonicalDocumentService()
@@ -31,14 +34,22 @@ class ExtractionPipeline:
         self,
         files: List[ExtractedFile],
         items_to_process: List[Dict[str, Any]],
+        selection: Dict[str, Any],
         max_pages: int = 2,
+        max_supporting_visual_items: int = 1,
         max_text_chars: int = 1500,
     ) -> tuple[List[bytes], List[str], str]:
         page_contents = [item["content"] for item in items_to_process[:max_pages]]
         mime_types = [item["mime_type"] for item in items_to_process[:max_pages]]
-        text_parts: List[str] = []
+        for support_file in selection.get("supporting_visual", [])[:max_supporting_visual_items]:
+            preview = self._build_visual_preview_item(support_file)
+            if preview:
+                page_contents.append(preview["content"])
+                mime_types.append(preview["mime_type"])
+
+        text_parts: List[str] = [self._format_selection_manifest(selection)]
         remaining = max_text_chars
-        for file_record in files:
+        for file_record in selection.get("supporting_text", []) + selection.get("ignored_textual", []):
             text = file_record.extracted_text
             if not text and file_record.mime_type in self.canonical_document_service.TEXTUAL_MIME_TYPES:
                 text = file_record.content.decode("utf-8", errors="ignore") if file_record.content else ""
@@ -56,6 +67,130 @@ class ExtractionPipeline:
                 break
         return page_contents, mime_types, "\n\n".join(text_parts)
 
+    def _build_visual_preview_item(self, file_record: ExtractedFile) -> Optional[Dict[str, Any]]:
+        try:
+            if file_record.mime_type == "application/pdf":
+                preview_page = convert_from_bytes(file_record.content, first_page=1, last_page=1)[0]
+                img_byte_arr = io.BytesIO()
+                preview_page.save(img_byte_arr, format="PNG")
+                return {"content": img_byte_arr.getvalue(), "mime_type": "image/png"}
+            if file_record.mime_type in self.canonical_document_service.IMAGE_MIME_TYPES:
+                return {"content": file_record.content, "mime_type": file_record.mime_type}
+        except Exception as exc:
+            logger.warning("Failed to build supporting visual preview for %s: %s", file_record.filename, exc)
+        return None
+
+    def _is_canonical_derivative(self, file_record: ExtractedFile) -> bool:
+        return bool(file_record.original_path and file_record.original_path.startswith("canonical://"))
+
+    def _candidate_role_score(self, file_record: ExtractedFile) -> tuple[int, str]:
+        mime_type = file_record.mime_type or ""
+        filename = (file_record.filename or "").lower()
+        score = 0
+        role = "ignored"
+
+        if mime_type == "application/pdf":
+            score = 300
+            role = "primary_candidate"
+        elif mime_type in self.canonical_document_service.IMAGE_MIME_TYPES:
+            score = 220
+            role = "primary_candidate"
+        elif mime_type == "text/plain":
+            score = 120
+            role = "supporting_text"
+        elif mime_type == "text/html":
+            score = 105
+            role = "supporting_text"
+        elif mime_type == "text/csv":
+            score = 80
+            role = "supporting_text"
+        elif self.canonical_document_service.can_canonicalize(mime_type):
+            score = 50
+            role = "supporting_text"
+
+        for term in self.PRIMARY_HINT_TERMS:
+            if term in filename:
+                score += 15
+                break
+        for term in self.DEPRIORITIZED_HINT_TERMS:
+            if term in filename:
+                score -= 20
+                break
+        if self._is_canonical_derivative(file_record):
+            score -= 500
+            role = "generated_artifact"
+        if not self.canonical_document_service.can_canonicalize(mime_type):
+            score -= 200
+            role = "unsupported"
+        if file_record.size:
+            score += min(file_record.size // 1024, 10)
+
+        return score, role
+
+    def _select_package_documents(self, files: List[ExtractedFile]) -> Dict[str, Any]:
+        selection: Dict[str, Any] = {
+            "primary": None,
+            "supporting_visual": [],
+            "supporting_text": [],
+            "ignored": [],
+            "ignored_textual": [],
+            "candidates": [],
+        }
+        ranked_candidates = []
+        for file_record in files:
+            score, role = self._candidate_role_score(file_record)
+            selection["candidates"].append(
+                {"filename": file_record.filename, "mime_type": file_record.mime_type, "score": score, "role": role}
+            )
+            if role in {"generated_artifact", "unsupported"}:
+                selection["ignored"].append(file_record)
+                if file_record.mime_type in self.canonical_document_service.TEXTUAL_MIME_TYPES:
+                    selection["ignored_textual"].append(file_record)
+                continue
+            ranked_candidates.append((score, file_record))
+
+        ranked_candidates.sort(
+            key=lambda item: (
+                item[0],
+                1 if item[1].mime_type == "application/pdf" else 0,
+                1 if item[1].mime_type in self.canonical_document_service.IMAGE_MIME_TYPES else 0,
+            ),
+            reverse=True,
+        )
+
+        if ranked_candidates:
+            selection["primary"] = ranked_candidates[0][1]
+
+        for _, candidate in ranked_candidates[1:]:
+            if candidate.mime_type in {"application/pdf"} | self.canonical_document_service.IMAGE_MIME_TYPES:
+                selection["supporting_visual"].append(candidate)
+            elif candidate.mime_type in self.canonical_document_service.TEXTUAL_MIME_TYPES:
+                selection["supporting_text"].append(candidate)
+            else:
+                selection["ignored"].append(candidate)
+
+        return selection
+
+    def _format_selection_manifest(self, selection: Dict[str, Any]) -> str:
+        primary = selection.get("primary")
+        primary_label = f"{primary.filename} ({primary.mime_type})" if primary else "None"
+        supporting_visual = ", ".join(
+            f"{file_record.filename} ({file_record.mime_type})" for file_record in selection.get("supporting_visual", [])
+        ) or "None"
+        supporting_text = ", ".join(
+            f"{file_record.filename} ({file_record.mime_type})" for file_record in selection.get("supporting_text", [])
+        ) or "None"
+        ignored = ", ".join(
+            f"{file_record.filename} ({file_record.mime_type})" for file_record in selection.get("ignored", [])
+        ) or "None"
+        return (
+            "Package candidate selection:\n"
+            f"- Primary candidate: {primary_label}\n"
+            f"- Supporting visual candidates: {supporting_visual}\n"
+            f"- Supporting textual artifacts: {supporting_text}\n"
+            f"- Ignored artifacts: {ignored}"
+        )
+
     def _load_schema(self, doc_type: str) -> Optional[Dict[str, Any]]:
         """Loads extraction schema for the given document type."""
         config_files = glob.glob(os.path.join(self.configs_path, "*.json"))
@@ -68,19 +203,6 @@ class ExtractionPipeline:
             except (json.JSONDecodeError, OSError) as e:
                 logger.error(f"Error loading config {config_file}: {e}")
         return None
-
-    def _select_primary_document(self, files: List[ExtractedFile]) -> Optional[ExtractedFile]:
-        main_document_file = None
-        visual_mimes = ["application/pdf", "image/png", "image/jpeg", "image/webp"]
-        textual_mimes = ["text/plain", "text/html", "text/csv"]
-
-        for file_record in files:
-            if file_record.mime_type in textual_mimes and not main_document_file:
-                main_document_file = file_record
-            elif file_record.mime_type in visual_mimes:
-                if not main_document_file or main_document_file.mime_type in textual_mimes:
-                    main_document_file = file_record
-        return main_document_file
 
     def _get_or_create_canonical_file(
         self,
@@ -149,12 +271,24 @@ class ExtractionPipeline:
 
             # 2. Primary document selection and canonicalization
             log_package_event(package_id, "PIPELINE", f"Preparing package for classification (found {len(files)} files)")
-            main_document_file = self._select_primary_document(files)
+            selection = self._select_package_documents(files)
+            main_document_file = selection["primary"]
             if not main_document_file:
                 log_package_event(package_id, "PIPELINE", "No processable document found in package", level="ERROR", new_status="FAILED")
                 return False
 
-            log_package_event(package_id, "PIPELINE", f"Selected '{main_document_file.filename}' as primary document")
+            log_package_event(
+                package_id,
+                "PIPELINE",
+                f"Selected '{main_document_file.filename}' as primary document",
+                details={
+                    "primary_document": main_document_file.filename,
+                    "supporting_visual": [file_record.filename for file_record in selection["supporting_visual"]],
+                    "supporting_text": [file_record.filename for file_record in selection["supporting_text"]],
+                    "ignored_artifacts": [file_record.filename for file_record in selection["ignored"]],
+                    "candidate_scores": selection["candidates"],
+                },
+            )
             canonical_file = self._get_or_create_canonical_file(session, package_id, main_document_file)
             log_package_event(package_id, "CANONICALIZATION", f"Using '{canonical_file.filename}' as canonical PDF")
 
@@ -183,7 +317,11 @@ class ExtractionPipeline:
 
             # 3. Classification
             log_package_event(package_id, "CLASSIFICATION", "Starting document classification", new_status="CLASSIFYING")
-            classification_contents, classification_mime_types, text_context = self._build_classification_context(files, items_to_process)
+            classification_contents, classification_mime_types, text_context = self._build_classification_context(
+                files,
+                items_to_process,
+                selection,
+            )
             doc_type = self.classification_service.classify(
                 content=classification_contents,
                 mime_type=classification_mime_types,
