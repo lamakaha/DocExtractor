@@ -12,7 +12,8 @@ def test_serialize_triplet():
     assert serialize_triplet(triplet) == {
         "value": "val", 
         "confidence": 0.9, 
-        "bbox": {"coordinates": [1, 2, 3, 4]}
+        "bbox": {"coordinates": [1, 2, 3, 4]},
+        "page_number": None
     }
     
     with pytest.raises(TypeError):

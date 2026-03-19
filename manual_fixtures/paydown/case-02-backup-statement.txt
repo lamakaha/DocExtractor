@@ -1,0 +1,9 @@
+North River Bank
+Backup Statement Copy
+
+Loan Reference Number: NRB-445821
+Statement Date: 2026-03-18
+
+Outstanding Principal: 15000.00
+Accrued Interest: 245.45
+Memo: Backup statement copy for package context only.

@@ -1,0 +1,12 @@
+North River Bank
+Commercial Loan Paydown Notice
+
+Loan Reference Number: NRB-445821
+Effective Date: 2026-03-31
+Paydown Amount: 15250.45
+
+Principal Payment: 15000.00
+Interest Due: 245.45
+Fees: 5.00
+
+Please remit funds on the effective date above.

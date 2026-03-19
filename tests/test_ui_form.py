@@ -1,6 +1,7 @@
 import pytest
 import json
-from src.ui.reviewer import get_confidence_color
+from PIL import Image
+from src.ui.reviewer import get_confidence_color, render_bbox_overlay
 from src.models.triplets import Triplet
 
 def test_get_confidence_color():
@@ -42,3 +43,12 @@ def test_triplet_parsing():
     assert parsed_data["bank_name"].value == "Test Bank"
     assert parsed_data["bank_name"].confidence == 0.50
     assert parsed_data["bank_name"].bbox is None
+
+
+def test_render_bbox_overlay_draws_on_expected_region():
+    image = Image.new("RGB", (1000, 1000), "white")
+
+    rendered = render_bbox_overlay(image, [100, 200, 300, 400])
+
+    # Border pixel should no longer be white once the overlay is drawn.
+    assert rendered.getpixel((200, 100)) != (255, 255, 255)

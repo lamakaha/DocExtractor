@@ -2,14 +2,14 @@
 
 ## Project Reference
 - **Core Value**: High-integrity intake for bank documents bridging unstructured archives (EML/ZIP) to structured accounting data.
-- **Current Focus**: Phase 8 hardening after completing runtime recovery and package-level selection improvements.
-- **Active Phase**: 8 (In Progress)
+- **Current Focus**: Maintenance after Phase 8 hardening and bbox-debugging closeout.
+- **Active Phase**: None
 
 ## Current Position
-- **Phase**: 8 - Hardening
-- **Plan**: 08-02 Package-Level Selection and Reconciliation (Completed)
-- **Status**: In Progress
-- **Progress**: [||||||----] 67%
+- **Phase**: None active
+- **Plan**: Phase 8 delivered through 08-03
+- **Status**: Maintenance
+- **Progress**: [||||||||||] 100%
 
 ## Performance Metrics
 - **Completion**: 7/7 Phases
@@ -45,10 +45,11 @@
 - [x] Aggregate observability reporting
 - [x] Runtime stale-claim recovery and terminal dead-letter handling
 - [x] Explicit package-level candidate selection and supporting-artifact reconciliation
+- [x] Raw extraction-response audit logging and reviewer bbox overlay verification
 
 ### Blockers
 - None.
 
 ## Session Continuity
-- **Last Action**: Implemented 08-02 by making package-level candidate selection explicit and feeding supporting artifacts into classification context and bounded reconciliation.
-- **Next Step**: Decide whether to open a final Phase 8 slice for orchestrator/stage-boundary cleanup or stop here with the remaining architecture debt documented.
+- **Last Action**: Implemented 08-03 by persisting extraction audit payloads and replacing the reviewer canvas highlight with direct image overlays.
+- **Next Step**: No active phase is required. Continue only if you want more optional hardening or model-quality tuning.

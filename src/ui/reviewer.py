@@ -1,8 +1,7 @@
 import streamlit as st
 import json
-from streamlit_drawable_canvas import st_canvas
 import io
-from PIL import Image
+from PIL import Image, ImageDraw
 from pdf2image import convert_from_bytes
 from src.models.triplets import Triplet, BoundingBox
 from src.ui.db_utils import (
@@ -45,6 +44,21 @@ def serialize_triplet(obj):
     if isinstance(obj, BoundingBox):
         return obj.model_dump()
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+def render_bbox_overlay(img: Image.Image, bbox_normalized: list[int] | None) -> Image.Image:
+    """Draw a read-only bbox overlay directly onto the displayed page image."""
+    rendered = img.convert("RGB").copy()
+    if not bbox_normalized:
+        return rendered
+
+    left, top, width, height = normalize_to_canvas(bbox_normalized, rendered.width, rendered.height)
+    right = left + width
+    bottom = top + height
+
+    draw = ImageDraw.Draw(rendered, "RGBA")
+    draw.rectangle([left, top, right, bottom], outline=(224, 0, 0, 255), width=4)
+    draw.rectangle([left, top, right, bottom], fill=(255, 165, 0, 72))
+    return rendered
 
 def show_reviewer(package_id: str):
     """
@@ -146,48 +160,8 @@ def show_reviewer(package_id: str):
             # Dynamic canvas width calculation
             canvas_width = 700 
             scale_factor = canvas_width / img_width
-            canvas_height = int(img_height * scale_factor)
-
-            # Check for active_bbox to highlight
-            initial_drawing = None
-            if st.session_state.get("active_bbox"):
-                # active_bbox is [ymin, xmin, ymax, xmax] normalized 0-1000
-                bbox_normalized = st.session_state.active_bbox
-                # Use normalize_to_canvas to get display coordinates [left, top, width, height]
-                left, top, width, height = normalize_to_canvas(bbox_normalized, canvas_width, canvas_height)
-                
-                initial_drawing = {
-                    "version": "4.4.0",
-                    "objects": [
-                        {
-                            "type": "rect",
-                            "originX": "left",
-                            "originY": "top",
-                            "left": left,
-                            "top": top,
-                            "width": width,
-                            "height": height,
-                            "fill": "rgba(255, 165, 0, 0.3)",
-                            "stroke": "#e00",
-                            "strokeWidth": 2,
-                        }
-                    ]
-                }
-
-            # Render the document image using st_canvas
-            st_canvas(
-                fill_color="rgba(255, 165, 0, 0.3)",
-                stroke_width=2,
-                stroke_color="#e00",
-                background_image=img,
-                update_streamlit=True,
-                height=canvas_height,
-                width=canvas_width,
-                drawing_mode="transform",
-                display_toolbar=False,
-                key=f"canvas_{current_extraction.id}",
-                initial_drawing=initial_drawing,
-            )
+            highlighted_img = render_bbox_overlay(img, st.session_state.get("active_bbox"))
+            st.image(highlighted_img, width=canvas_width)
         else:
             st.error("No image found for this extraction.")
 

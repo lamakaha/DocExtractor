@@ -59,6 +59,7 @@ def test_process_package_creates_canonical_pdf_and_persists_normalized_bboxes(mo
                         bbox=BoundingBox(coordinates=[10, 20, 30, 40]),
                     )
                 },
+                raw_response='{"lender_name":{"value":"Test Bank","confidence":0.95,"bbox":[10,20,30,40]}}',
             ),
         )
 
@@ -78,6 +79,10 @@ def test_process_package_creates_canonical_pdf_and_persists_normalized_bboxes(mo
         assert extraction_json["lender_name"]["bbox"]["coordinates"] == [10, 20, 30, 40]
         assert extraction_json["lender_name"]["page_number"] == 1
         assert any(call[0][1] == "CLASSIFICATION" and call[1].get("details", {}).get("model_id") == "test-model" for call in log_calls)
+        extraction_detail_calls = [call for call in log_calls if call[0][1] == "EXTRACTION" and call[0][2] == "Extraction completed for page 1"]
+        assert extraction_detail_calls
+        assert extraction_detail_calls[0][1]["details"]["raw_response_chars"] > 0
+        assert extraction_detail_calls[0][1]["details"]["raw_response_truncated"] is False
     finally:
         session.close()
         engine.dispose()
@@ -124,6 +129,7 @@ def test_process_package_reconciles_multi_page_results(monkeypatch):
                         "lender_name": Triplet(value="", confidence=0.4, bbox=None),
                         "total_amount": Triplet(value="100", confidence=0.5, bbox=BoundingBox(coordinates=[10, 20, 30, 40])),
                     },
+                    raw_response='{"page":1}',
                 ),
                 ExtractionResult(
                     document_type="Commercial_Loan_Paydown",
@@ -131,6 +137,7 @@ def test_process_package_reconciles_multi_page_results(monkeypatch):
                         "lender_name": Triplet(value="Merged Bank", confidence=0.9, bbox=BoundingBox(coordinates=[50, 60, 70, 80])),
                         "total_amount": Triplet(value="90", confidence=0.4, bbox=BoundingBox(coordinates=[11, 21, 31, 41])),
                     },
+                    raw_response='{"page":2}',
                 ),
             ]
         )
@@ -222,6 +229,7 @@ def test_process_package_logs_explicit_package_selection_and_supporting_context(
                         bbox=BoundingBox(coordinates=[10, 20, 30, 40]),
                     )
                 },
+                raw_response='{"lender_name":{"value":"Test Bank"}}',
             ),
         )
 

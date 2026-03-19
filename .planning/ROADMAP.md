@@ -1,9 +1,9 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: 8 - Hardening
-- **Progress**: 7 phases complete; Phase 8 planning in progress
-- **Last Updated**: 2026-03-18
+- **Current Phase**: None active
+- **Progress**: 8 phases complete; current planned roadmap delivered
+- **Last Updated**: 2026-03-19
 
 ## Phases
 - [x] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
@@ -13,7 +13,7 @@
 - [x] **Phase 5: UI-Validation** - Automated E2E testing using Playwright to interact with Streamlit UI (http://localhost:8501) and verify "Reviewer" and "Export" features.
 - [x] **Phase 6: Pipeline Refresh** - Canonical PDF normalization, normalized bbox persistence, and staged durability improvements for the extraction pipeline.
 - [x] **Phase 7: Observability & Context** - Structured runtime metadata, richer package-context classification, and improved debugging/operational traceability.
-- [ ] **Phase 8: Hardening** - Runtime recovery semantics, stronger package-level decision rules, and further orchestration cleanup where justified.
+- [x] **Phase 8: Hardening** - Runtime recovery semantics, stronger package-level decision rules, and reviewer/debugging hardening for bbox auditability.
 
 ---
 
@@ -127,9 +127,10 @@ Phase 8 is now open for the remaining architectural hardening work that was inte
   2. Retry exhaustion results in explicit terminal queue states rather than ambiguous failures.
   3. Package-level candidate selection and supporting-artifact handling are explicit and reproducible.
   4. Follow-on plans are defined for orchestrator/stage-boundary cleanup if still justified after hardening.
-**Plans**: 2 completed plans
+**Plans**: 3 completed plans
 - [x] 08-01-PLAN.md — Runtime Hardening
 - [x] 08-02-PLAN.md — Package-Level Selection and Reconciliation
+- [x] 08-03-PLAN.md — Reviewer BBox Debugging and Raw Response Audit
 
 ---
 
@@ -143,4 +144,4 @@ Phase 8 is now open for the remaining architectural hardening work that was inte
 | 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
 | 6. Pipeline Refresh | 4/4 | Completed | 2026-03-16 |
 | 7. Observability & Context | 3/3 | Completed | 2026-03-16 |
-| 8. Hardening | 2/2 | In Progress | N/A |
+| 8. Hardening | 3/3 | Completed | 2026-03-19 |

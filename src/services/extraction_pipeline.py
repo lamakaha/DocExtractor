@@ -67,6 +67,28 @@ class ExtractionPipeline:
                 break
         return page_contents, mime_types, "\n\n".join(text_parts)
 
+    def _build_extraction_audit_details(
+        self,
+        run_details: Dict[str, Any],
+        page_number: int,
+        raw_response: Optional[str],
+        max_chars: int = 20000,
+    ) -> Dict[str, Any]:
+        audit_details = {**run_details, "page_number": page_number}
+        if raw_response is None:
+            return audit_details
+
+        truncated = raw_response
+        was_truncated = False
+        if len(raw_response) > max_chars:
+            truncated = raw_response[:max_chars]
+            was_truncated = True
+
+        audit_details["raw_response"] = truncated
+        audit_details["raw_response_chars"] = len(raw_response)
+        audit_details["raw_response_truncated"] = was_truncated
+        return audit_details
+
     def _build_visual_preview_item(self, file_record: ExtractedFile) -> Optional[Dict[str, Any]]:
         try:
             if file_record.mime_type == "application/pdf":
@@ -361,10 +383,11 @@ class ExtractionPipeline:
                     package_id,
                     "EXTRACTION",
                     f"Extraction completed for page {item_data['page_num']}",
-                    details={
-                        **self.extraction_service.last_run_details,
-                        "page_number": item_data["page_num"],
-                    },
+                    details=self._build_extraction_audit_details(
+                        self.extraction_service.last_run_details,
+                        page_number=item_data["page_num"],
+                        raw_response=result.raw_response,
+                    ),
                 )
 
                 # 5. Keep normalized bboxes as the persisted source of truth.
