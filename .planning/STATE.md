@@ -2,14 +2,14 @@
 
 ## Project Reference
 - **Core Value**: High-integrity intake for bank documents bridging unstructured archives (EML/ZIP) to structured accounting data.
-- **Current Focus**: Documentation reconciliation and maintenance after delivery of the planned Phase 1-7 roadmap.
-- **Active Phase**: None
+- **Current Focus**: Phase 8 hardening after completing runtime recovery improvements for the durable extraction job flow.
+- **Active Phase**: 8 (In Progress)
 
 ## Current Position
-- **Phase**: None active
-- **Plan**: Roadmap delivered through 07-03
-- **Status**: Maintenance
-- **Progress**: [||||||||||] 100%
+- **Phase**: 8 - Hardening
+- **Plan**: 08-01 Runtime Hardening (Completed)
+- **Status**: In Progress
+- **Progress**: [|||-------] 33%
 
 ## Performance Metrics
 - **Completion**: 7/7 Phases
@@ -43,10 +43,11 @@
 - [x] Observability metadata capture
 - [x] Package-context-aware classification
 - [x] Aggregate observability reporting
+- [x] Runtime stale-claim recovery and terminal dead-letter handling
 
 ### Blockers
 - None.
 
 ## Session Continuity
-- **Last Action**: Reconciled planning and architecture docs to match the implemented canonical-PDF, durable-job, reconciliation, analytics, and observability work through Phase 7.
-- **Next Step**: No active phase is required. Open a new phase only if new product requirements or hardening priorities are introduced.
+- **Last Action**: Implemented 08-01 by adding stale-claim recovery and explicit dead-letter handling to extraction jobs.
+- **Next Step**: Open the next Phase 8 slice for package-level selection and reconciliation if the remaining architectural review gaps should continue.

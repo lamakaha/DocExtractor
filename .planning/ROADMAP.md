@@ -1,9 +1,9 @@
 # Roadmap: DocExtractor
 
 ## Status
-- **Current Phase**: None active
-- **Progress**: 7 phases complete; current planned roadmap delivered
-- **Last Updated**: 2026-03-16
+- **Current Phase**: 8 - Hardening
+- **Progress**: 7 phases complete; Phase 8 planning in progress
+- **Last Updated**: 2026-03-18
 
 ## Phases
 - [x] **Phase 1: Ingestion Engine** - Recursive unpacking of EML/ZIP into standardized "Package" contexts.
@@ -13,6 +13,7 @@
 - [x] **Phase 5: UI-Validation** - Automated E2E testing using Playwright to interact with Streamlit UI (http://localhost:8501) and verify "Reviewer" and "Export" features.
 - [x] **Phase 6: Pipeline Refresh** - Canonical PDF normalization, normalized bbox persistence, and staged durability improvements for the extraction pipeline.
 - [x] **Phase 7: Observability & Context** - Structured runtime metadata, richer package-context classification, and improved debugging/operational traceability.
+- [ ] **Phase 8: Hardening** - Runtime recovery semantics, stronger package-level decision rules, and further orchestration cleanup where justified.
 
 ---
 
@@ -115,7 +116,18 @@
 - [x] 07-03-PLAN.md — Observability Analytics and Trend Reporting
 
 ### Post-Phase Note
-No Phase 8 work is currently committed. Additional hardening around centralized redaction policy, alerting, or further package-context tuning is deferred unless future requirements justify reopening the roadmap.
+Phase 8 is now open for the remaining architectural hardening work that was intentionally deferred after the Phase 1-7 delivery path.
+
+### Phase 8: Hardening
+**Goal**: Close the highest-value remaining architecture gaps in runtime recovery behavior and package-level decision semantics without reopening already-sufficient observability or deferred redaction policy work.
+**Depends on**: Phase 7
+**Requirements**: REQ-NFR-01, REQ-NFR-03, REQ-DAT-01
+**Success Criteria**:
+  1. Extraction jobs recover cleanly from stale claims or worker interruption.
+  2. Retry exhaustion results in explicit terminal queue states rather than ambiguous failures.
+  3. Follow-on plans are defined for package-level selection/reconciliation and orchestrator/stage-boundary cleanup if still justified after hardening.
+**Plans**: 1 completed plan
+- [x] 08-01-PLAN.md — Runtime Hardening
 
 ---
 
@@ -129,3 +141,4 @@ No Phase 8 work is currently committed. Additional hardening around centralized 
 | 5. UI-Validation | 3/3 | Completed | 2026-03-14 |
 | 6. Pipeline Refresh | 4/4 | Completed | 2026-03-16 |
 | 7. Observability & Context | 3/3 | Completed | 2026-03-16 |
+| 8. Hardening | 1/1 | In Progress | N/A |
